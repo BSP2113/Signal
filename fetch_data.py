@@ -147,7 +147,7 @@ def build_dashboard(assets):
         cards += f"""
         <div class="card" id="card-{ticker}" style="display:{display}">
             <div class="btn-row">
-                <button class="toggle-btn" id="toggle-{ticker}" onclick="toggleChart('{ticker}')">Candlestick</button>
+                <button class="toggle-btn active" id="toggle-{ticker}" onclick="toggleChart('{ticker}')">Line</button>
                 <button class="reset-btn" onclick="resetZoom('{ticker}')">Reset Zoom</button>
             </div>
             <div class="chart-wrap" id="wrap-{ticker}">
@@ -175,7 +175,7 @@ def build_dashboard(assets):
             ohlc:      {ohlc},
             volumesTs: {volumes_ts}
         }};
-        chartMode['{ticker}'] = 'line';
+        chartMode['{ticker}'] = 'candlestick';
         charts['{ticker}']    = buildChart('{ticker}', '{default_date}');
         """
 
