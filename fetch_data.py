@@ -151,7 +151,7 @@ def build_dashboard(assets):
         f'<button class="tab{"" if i else " active"}" id="tab-{a["ticker"]}" '
         f'onclick="showTicker(\'{a["ticker"]}\')">{a["ticker"]}</button>'
         for i, a in enumerate(assets)
-    )
+    ) + '<button class="tab" id="tab-pnl" onclick="showPnL()">P&amp;L</button>'
 
     date_options = "".join(f'<option value="{d}"{"  selected" if d == default_date else ""}>{d}</option>'
                            for d in all_dates)
@@ -180,11 +180,13 @@ def build_dashboard(assets):
             <div class="chart-wrap" id="wrap-{ticker}">
                 <canvas id="chart-{ticker}"></canvas>
             </div>
-            <h3>Signals</h3>
-            <table>
-                <thead><tr><th>Date</th><th>Direction</th><th>Rating</th><th>Reason</th></tr></thead>
-                <tbody id="signals-{ticker}">{signal_rows}</tbody>
-            </table>
+            <h3 class="collapsible" onclick="toggleSection(this)">▶ Signals</h3>
+            <div class="collapsible-body" style="display:none">
+                <table>
+                    <thead><tr><th>Date</th><th>Direction</th><th>Rating</th><th>Reason</th></tr></thead>
+                    <tbody id="signals-{ticker}">{signal_rows}</tbody>
+                </table>
+            </div>
         </div>
         """
 
@@ -255,8 +257,10 @@ def build_dashboard(assets):
             </div>
             """
         pnl_section = f"""
-        <div class="section-header">P&L Tracker</div>
-        <div class="pnl-tracker">{ex_cards}</div>
+        <div id="pnl-panel" style="display:none">
+            <div class="section-header">P&L Tracker</div>
+            <div class="pnl-tracker">{ex_cards}</div>
+        </div>
         """
 
     generated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -304,6 +308,8 @@ def build_dashboard(assets):
         .ex-totals td {{ border-top: 1px solid #2a2a4a; color: #aaa; font-weight: bold; padding-top: 6px; }}
         .pnl-win      {{ color: #4caf50; }}
         .pnl-loss     {{ color: #f44336; }}
+        .collapsible  {{ cursor: pointer; user-select: none; color: #aaa; font-size: 0.9em; margin-top: 20px; }}
+        .collapsible:hover {{ color: #7eb8f7; }}
         .btn-row     {{ display: flex; gap: 8px; margin-bottom: 10px; }}
         .reset-btn, .toggle-btn {{
             background: #2a2a4a; color: #7eb8f7; border: 1px solid #4f8ef7;
@@ -315,14 +321,14 @@ def build_dashboard(assets):
 </head>
 <body>
     <h1>Signal Reader Dashboard</h1>
-    {pnl_section}
     <div class="controls">
         <div class="tabs">{ticker_tabs}</div>
-        <span class="date-label">Day:</span>
+        <span class="date-label" id="day-label">Day:</span>
         <select id="date-select" onchange="changeDate(this.value)">{date_options}</select>
-        <span class="date-label" style="color:#555">Interval: {INTERVAL}</span>
+        <span class="date-label" style="color:#555" id="interval-label">Interval: {INTERVAL}</span>
     </div>
-    {cards}
+    <div id="chart-panel">{cards}</div>
+    {pnl_section}
     <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
     <script>
         var charts    = {{}};
@@ -420,6 +426,30 @@ def build_dashboard(assets):
             document.getElementById('card-' + ticker).style.display = 'block';
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + ticker).classList.add('active');
+            document.getElementById('chart-panel').style.display = 'block';
+            var pnl = document.getElementById('pnl-panel');
+            if (pnl) pnl.style.display = 'none';
+            document.getElementById('date-select').style.display = '';
+            document.getElementById('day-label').style.display = '';
+            document.getElementById('interval-label').style.display = '';
+        }}
+
+        function showPnL() {{
+            document.getElementById('chart-panel').style.display = 'none';
+            var pnl = document.getElementById('pnl-panel');
+            if (pnl) pnl.style.display = 'block';
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-pnl').classList.add('active');
+            document.getElementById('date-select').style.display = 'none';
+            document.getElementById('day-label').style.display = 'none';
+            document.getElementById('interval-label').style.display = 'none';
+        }}
+
+        function toggleSection(el) {{
+            var body = el.nextElementSibling;
+            var open = body.style.display !== 'none';
+            body.style.display = open ? 'none' : 'block';
+            el.textContent = (open ? '▶' : '▼') + ' Signals';
         }}
 
         function changeDate(dateStr) {{
