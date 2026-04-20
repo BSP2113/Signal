@@ -123,6 +123,7 @@ def build_dashboard(assets):
                             pan: {{ enabled: true, mode: 'x' }}
                         }}
                     }}
+                }}
             }});
         }})();
         """
@@ -134,7 +135,7 @@ def build_dashboard(assets):
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="60">
     <title>Signal Reader Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
