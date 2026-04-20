@@ -1,8 +1,9 @@
 """
-fetch_data.py — pulls historical price data from Yahoo Finance and generates dashboard.html
+fetch_data.py — pulls 1-minute interval price data from Yahoo Finance and generates dashboard.html
 
 Run with: python3 fetch_data.py
 Then open dashboard.html in your browser.
+Note: Yahoo Finance only provides 1-minute data for the last 7 days.
 """
 
 import json
@@ -12,38 +13,41 @@ from datetime import datetime
 # Assets to track — add or remove tickers here
 TICKERS = ["AAPL", "MSFT", "BTC-USD", "ETH-USD"]
 
-# How many days of history to pull
-PERIOD = "30d"
+# 1-minute data — Yahoo Finance supports up to 7 days at this resolution
+PERIOD = "5d"
+INTERVAL = "1m"
 
 
 def fetch(ticker):
-    data = yf.download(ticker, period=PERIOD, interval="1d", progress=False, auto_adjust=True)
+    data = yf.download(ticker, period=PERIOD, interval=INTERVAL, progress=False, auto_adjust=True)
     if data.empty:
         print(f"  Warning: no data returned for {ticker}")
         return None
-    dates = [str(d.date()) for d in data.index]
+    dates = [str(d) for d in data.index]
     closes = [round(float(v), 2) for v in data["Close"].squeeze().tolist()]
     volumes = [int(v) for v in data["Volume"].squeeze().tolist()]
     return {"ticker": ticker, "dates": dates, "closes": closes, "volumes": volumes}
 
 
 def detect_signals(asset):
-    """Flag days where price or volume moved more than 5% from the previous day."""
+    """Flag 1-minute candles where price moved >1% or volume spiked >2x average."""
     signals = []
     closes = asset["closes"]
     volumes = asset["volumes"]
     dates = asset["dates"]
-    avg_volume = sum(volumes) / len(volumes)
+    avg_volume = sum(volumes) / len(volumes) if volumes else 1
 
     for i in range(1, len(closes)):
+        if closes[i - 1] == 0:
+            continue
         price_change = abs(closes[i] - closes[i - 1]) / closes[i - 1]
-        volume_spike = volumes[i] > avg_volume * 1.5
+        volume_spike = volumes[i] > avg_volume * 2
 
-        if price_change > 0.05 or volume_spike:
+        if price_change > 0.01 or volume_spike:
             direction = "UP" if closes[i] > closes[i - 1] else "DOWN"
             reason = []
-            if price_change > 0.05:
-                reason.append(f"price moved {price_change:.1%} {direction}")
+            if price_change > 0.01:
+                reason.append(f"price moved {price_change:.2%} {direction}")
             if volume_spike:
                 reason.append(f"volume {volumes[i]:,} vs avg {avg_volume:,.0f}")
             signals.append({"date": dates[i], "reason": ", ".join(reason), "direction": direction})
@@ -120,6 +124,7 @@ def build_dashboard(assets):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="60">
     <title>Signal Reader Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -139,9 +144,9 @@ def build_dashboard(assets):
 </head>
 <body>
     <h1>Signal Reader Dashboard</h1>
-    <p>Tracking: {", ".join(TICKERS)} &nbsp;|&nbsp; Period: {PERIOD}</p>
+    <p>Tracking: {", ".join(TICKERS)} &nbsp;|&nbsp; Interval: {INTERVAL} &nbsp;|&nbsp; Period: {PERIOD}</p>
     <div class="grid">{cards}</div>
-    <p class="meta">Generated: {generated} — re-run fetch_data.py to refresh</p>
+    <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
     <script>{charts_js}</script>
 </body>
 </html>"""
