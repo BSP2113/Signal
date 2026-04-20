@@ -7,6 +7,7 @@ Note: Yahoo Finance only provides 1-minute data for the last 7 days.
 """
 
 import json
+import os
 import yfinance as yf
 from datetime import datetime
 
@@ -205,6 +206,59 @@ def build_dashboard(assets):
         charts['{ticker}']    = buildChart('{ticker}', '{default_date}');
         """
 
+    # Load exercises from file
+    exercises_path = os.path.join(os.path.dirname(__file__), "exercises.json")
+    exercises = []
+    if os.path.exists(exercises_path):
+        with open(exercises_path) as f:
+            exercises = json.load(f)
+
+    pnl_section = ""
+    if exercises:
+        ex_cards = ""
+        for ex in exercises:
+            trade_rows = ""
+            for t in ex["trades"]:
+                pnl_class = "pnl-win" if t["pnl"] >= 0 else "pnl-loss"
+                trade_rows += (
+                    f'<tr>'
+                    f'<td>{t["ticker"]}</td>'
+                    f'<td>{t["time"]}</td>'
+                    f'<td>${t["entry"]:.2f}</td>'
+                    f'<td>${t["allocated"]:.2f}</td>'
+                    f'<td>${t["eod"]:.2f}</td>'
+                    f'<td class="{pnl_class}">${t["pnl"]:+.2f} ({t["pnl_pct"]:+.2f}%)</td>'
+                    f'</tr>'
+                )
+            total_class = "pnl-win" if ex["total_pnl"] >= 0 else "pnl-loss"
+            ex_cards += f"""
+            <div class="ex-card">
+                <div class="ex-header">
+                    <span class="ex-title">{ex["title"]}</span>
+                    <span class="ex-date">{ex["date"]}</span>
+                    <span class="ex-summary {total_class}">
+                        ${ex["portfolio_eod"]:.2f} &nbsp;|&nbsp; {ex["total_pnl"]:+.2f} ({ex["total_pnl_pct"]:+.2f}%)
+                    </span>
+                </div>
+                <table>
+                    <thead><tr><th>Ticker</th><th>Entry Time</th><th>Entry $</th><th>Allocated</th><th>EOD $</th><th>P&L</th></tr></thead>
+                    <tbody>{trade_rows}</tbody>
+                    <tfoot>
+                        <tr class="ex-totals">
+                            <td colspan="3"></td>
+                            <td>${ex["total_invested"]:.2f} deployed</td>
+                            <td>${ex["eod_value"]:.2f}</td>
+                            <td class="{total_class}">${ex["total_pnl"]:+.2f} ({ex["total_pnl_pct"]:+.2f}%)</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            """
+        pnl_section = f"""
+        <div class="section-header">P&L Tracker</div>
+        <div class="pnl-tracker">{ex_cards}</div>
+        """
+
     generated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -239,7 +293,17 @@ def build_dashboard(assets):
         .rating-take  {{ background: #1b3a1b; color: #4caf50; }}
         .rating-maybe {{ background: #2e2a10; color: #f0c040; }}
         .rating-skip  {{ background: #2a1a1a; color: #888; }}
-        .meta        {{ color: #555; font-size: 0.8em; margin-top: 30px; }}
+        .meta         {{ color: #555; font-size: 0.8em; margin-top: 30px; }}
+        .section-header {{ color: #4f8ef7; font-size: 1.1em; font-weight: bold; margin: 36px 0 12px; border-bottom: 1px solid #2a2a4a; padding-bottom: 6px; }}
+        .pnl-tracker  {{ display: flex; flex-direction: column; gap: 16px; }}
+        .ex-card      {{ background: #1a1a2e; border-radius: 10px; padding: 16px 20px; }}
+        .ex-header    {{ display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }}
+        .ex-title     {{ font-weight: bold; color: #7eb8f7; font-size: 1em; }}
+        .ex-date      {{ color: #555; font-size: 0.85em; }}
+        .ex-summary   {{ margin-left: auto; font-weight: bold; font-size: 0.95em; }}
+        .ex-totals td {{ border-top: 1px solid #2a2a4a; color: #aaa; font-weight: bold; padding-top: 6px; }}
+        .pnl-win      {{ color: #4caf50; }}
+        .pnl-loss     {{ color: #f44336; }}
         .btn-row     {{ display: flex; gap: 8px; margin-bottom: 10px; }}
         .reset-btn, .toggle-btn {{
             background: #2a2a4a; color: #7eb8f7; border: 1px solid #4f8ef7;
@@ -258,6 +322,7 @@ def build_dashboard(assets):
         <span class="date-label" style="color:#555">Interval: {INTERVAL}</span>
     </div>
     {cards}
+    {pnl_section}
     <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
     <script>
         var charts    = {{}};

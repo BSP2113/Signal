@@ -1,0 +1,54 @@
+[
+  {
+    "title": "Exercise 1 - Buy",
+    "date": "2026-04-20",
+    "starting_capital": 1000.00,
+    "cash_held": 400.00,
+    "trades": [
+      {
+        "ticker": "SOL-USD",
+        "action": "BUY",
+        "time": "00:45",
+        "entry": 83.85,
+        "units": 2.3852,
+        "allocated": 200.00,
+        "eod": 85.29,
+        "pnl": 3.43,
+        "pnl_pct": 1.72,
+        "rating": "MAYBE",
+        "vol_ratio": 1.7
+      },
+      {
+        "ticker": "COIN",
+        "action": "BUY",
+        "time": "13:53",
+        "entry": 203.78,
+        "units": 0.9815,
+        "allocated": 200.00,
+        "eod": 211.69,
+        "pnl": 7.76,
+        "pnl_pct": 3.88,
+        "rating": "MAYBE",
+        "vol_ratio": 1.6
+      },
+      {
+        "ticker": "NVDA",
+        "action": "BUY",
+        "time": "16:06",
+        "entry": 198.94,
+        "units": 1.0053,
+        "allocated": 200.00,
+        "eod": 202.11,
+        "pnl": 3.19,
+        "pnl_pct": 1.59,
+        "rating": "MAYBE",
+        "vol_ratio": 0.8
+      }
+    ],
+    "total_invested": 600.00,
+    "eod_value": 614.38,
+    "total_pnl": 14.38,
+    "total_pnl_pct": 2.40,
+    "portfolio_eod": 1014.38
+  }
+]
