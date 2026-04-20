@@ -71,7 +71,10 @@ def build_dashboard(assets):
         cards += f"""
         <div class="card">
             <h2>{ticker}</h2>
-            <canvas id="chart-{ticker}"></canvas>
+            <div class="chart-wrap">
+                <canvas id="chart-{ticker}"></canvas>
+            </div>
+            <button class="reset-btn" onclick="resetZoom('{ticker}')">Reset Zoom</button>
             <h3>Signals</h3>
             <table>
                 <thead><tr><th>Date</th><th>Direction</th><th>Reason</th></tr></thead>
@@ -87,7 +90,7 @@ def build_dashboard(assets):
         charts_js += f"""
         (function() {{
             var ctx = document.getElementById('chart-{ticker}').getContext('2d');
-            new Chart(ctx, {{
+            charts['{ticker}'] = new Chart(ctx, {{
                 type: 'line',
                 data: {{
                     labels: {labels},
@@ -113,8 +116,13 @@ def build_dashboard(assets):
                     scales: {{
                         y: {{ position: 'left', title: {{ display: true, text: 'Price (USD)' }} }},
                         y2: {{ position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Volume' }} }}
+                    }},
+                    plugins: {{
+                        zoom: {{
+                            zoom: {{ wheel: {{ enabled: true }}, pinch: {{ enabled: true }}, mode: 'x' }},
+                            pan: {{ enabled: true, mode: 'x' }}
+                        }}
                     }}
-                }}
             }});
         }})();
         """
@@ -127,6 +135,8 @@ def build_dashboard(assets):
     <meta http-equiv="refresh" content="60">
     <title>Signal Reader Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         body {{ font-family: sans-serif; background: #0f0f1a; color: #e0e0e0; margin: 0; padding: 20px; }}
         h1 {{ color: #4f8ef7; }}
@@ -140,6 +150,8 @@ def build_dashboard(assets):
         .signal-up {{ color: #4caf50; }}
         .signal-down {{ color: #f44336; }}
         .meta {{ color: #555; font-size: 0.8em; margin-top: 30px; }}
+        .reset-btn {{ margin-top: 8px; background: #2a2a4a; color: #7eb8f7; border: 1px solid #4f8ef7; border-radius: 5px; padding: 4px 12px; cursor: pointer; font-size: 0.8em; }}
+        .reset-btn:hover {{ background: #4f8ef7; color: #fff; }}
     </style>
 </head>
 <body>
@@ -147,7 +159,11 @@ def build_dashboard(assets):
     <p>Tracking: {", ".join(TICKERS)} &nbsp;|&nbsp; Interval: {INTERVAL} &nbsp;|&nbsp; Period: {PERIOD}</p>
     <div class="grid">{cards}</div>
     <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
-    <script>{charts_js}</script>
+    <script>
+        var charts = {{}};
+        function resetZoom(ticker) {{ charts[ticker].resetZoom(); }}
+        {charts_js}
+    </script>
 </body>
 </html>"""
 
