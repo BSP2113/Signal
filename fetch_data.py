@@ -11,7 +11,7 @@ import yfinance as yf
 from datetime import datetime
 
 # Assets to track — add or remove tickers here
-TICKERS = ["AAPL", "MSFT", "BTC-USD", "ETH-USD"]
+TICKERS = ["NVDA", "TSLA", "COIN", "SOL-USD"]
 
 # 1-minute data — Yahoo Finance supports up to 7 days at this resolution
 PERIOD = "5d"
