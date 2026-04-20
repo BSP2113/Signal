@@ -48,33 +48,48 @@ def fetch(ticker):
     }
 
 
-def score_signal(direction, closes_so_far, vol, avg_volume):
-    """Rate a signal TAKE / MAYBE / SKIP using only data available at the moment it fires."""
-    score = 0
+def score_signal(direction, closes_so_far, vol, avg_volume, today_start_idx):
+    """Rate a signal TAKE / MAYBE / SKIP using only data available at the moment it fires.
 
-    # Is price trending in the same direction over the last 20 bars?
-    lookback = min(20, len(closes_so_far) - 1)
-    trend_up = closes_so_far[-1] > closes_so_far[-lookback]
-    aligned  = (direction == "UP" and trend_up) or (direction == "DOWN" and not trend_up)
-    score   += 1 if aligned else -1
-
-    # Is volume backing the move?
+    The EMA crossover already captures direction — so we score on:
+      1. Volume conviction
+      2. Whether price action is choppy
+      3. Dominant trend protection: block counter-trend exits on strongly trending days
+    """
+    score     = 0
     vol_ratio = vol / avg_volume if avg_volume else 0
+
+    # Only use today's candles — avoids overnight gap distortion
+    todays_closes = closes_so_far[today_start_idx:]
+    if len(todays_closes) < 2:
+        return "SKIP"
+
+    # Dominant trend protection: compare to today's open — captures the full day's trend, not just the last 60 bars
+    day_open    = todays_closes[0]
+    day_change  = (todays_closes[-1] - day_open) / day_open if day_open else 0
+    strong_trend     = abs(day_change) > 0.02
+    dominant_up      = day_change > 0
+    counter_dominant = strong_trend and (
+        (direction == "SELL" and dominant_up) or (direction == "BUY" and not dominant_up)
+    )
+    if counter_dominant and vol_ratio < 2.0:
+        return "SKIP"
+
+    # Volume conviction
     if vol_ratio >= 1.5:
         score += 1
     elif vol_ratio < 0.5:
         score -= 1
 
-    # Is price action choppy? Count direction changes in last 10 bars
-    flips = sum(
-        1 for j in range(1, min(10, len(closes_so_far) - 1))
-        if (closes_so_far[-j] - closes_so_far[-j-1]) * (closes_so_far[-j-1] - closes_so_far[-j-2]) < 0
-    )
+    # Choppiness: too many direction flips recently = unreliable signal
+    recent = todays_closes[-min(12, len(todays_closes)):]
+    flips  = sum(1 for j in range(1, len(recent) - 1)
+                 if (recent[-j] - recent[-j-1]) * (recent[-j-1] - recent[-j-2]) < 0)
     score += 1 if flips < 3 else -1
 
-    if score >= 2:
+    if score >= 1:
         return "TAKE"
-    elif score == 1:
+    elif score == 0:
         return "MAYBE"
     else:
         return "SKIP"
@@ -87,6 +102,14 @@ def detect_signals(asset, date_filter=None):
     volumes    = asset["volumes"]
     labels     = asset["labels"]
     avg_volume = sum(volumes) / len(volumes) if volumes else 1
+
+    # Find the start index of the filtered date so trend calc stays within today
+    today_start_idx = 0
+    if date_filter:
+        for k, l in enumerate(labels):
+            if l.startswith(date_filter):
+                today_start_idx = k
+                break
 
     for i in range(1, len(closes)):
         if date_filter and not labels[i].startswith(date_filter):
@@ -104,7 +127,7 @@ def detect_signals(asset, date_filter=None):
             if volume_spike:
                 vol_ratio = volumes[i] / avg_volume if avg_volume else 0
                 reason.append(f"{vol_ratio:.1f}x avg volume")
-            rating = score_signal(direction, closes[:i+1], volumes[i], avg_volume)
+            rating = score_signal(direction, closes[:i+1], volumes[i], avg_volume, today_start_idx)
             signals.append({
                 "date":      labels[i],
                 "reason":    ", ".join(reason),
