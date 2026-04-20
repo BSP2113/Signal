@@ -24,37 +24,41 @@ def fetch(ticker):
         print(f"  Warning: no data returned for {ticker}")
         return None
 
-    timestamps = [int(d.timestamp() * 1000) for d in data.index]
-    opens   = [round(float(v), 2) for v in data["Open"].squeeze().tolist()]
-    highs   = [round(float(v), 2) for v in data["High"].squeeze().tolist()]
-    lows    = [round(float(v), 2) for v in data["Low"].squeeze().tolist()]
-    closes  = [round(float(v), 2) for v in data["Close"].squeeze().tolist()]
-    volumes = [int(v) for v in data["Volume"].squeeze().tolist()]
+    timestamps  = [int(d.timestamp() * 1000) for d in data.index]
+    opens       = [round(float(v), 2) for v in data["Open"].squeeze().tolist()]
+    highs       = [round(float(v), 2) for v in data["High"].squeeze().tolist()]
+    lows        = [round(float(v), 2) for v in data["Low"].squeeze().tolist()]
+    closes      = [round(float(v), 2) for v in data["Close"].squeeze().tolist()]
+    volumes     = [int(v) for v in data["Volume"].squeeze().tolist()]
+    labels      = [str(d) for d in data.index]
+    dates       = sorted(set(str(d.date()) for d in data.index))
 
-    ohlc       = [{"x": ts, "o": o, "h": h, "l": l, "c": c}
-                  for ts, o, h, l, c in zip(timestamps, opens, highs, lows, closes)]
-    volumes_ts = [{"x": ts, "y": v} for ts, v in zip(timestamps, volumes)]
-    labels     = [str(d) for d in data.index]
+    ohlc        = [{"x": ts, "o": o, "h": h, "l": l, "c": c}
+                   for ts, o, h, l, c in zip(timestamps, opens, highs, lows, closes)]
+    volumes_ts  = [{"x": ts, "y": v} for ts, v in zip(timestamps, volumes)]
 
     return {
-        "ticker": ticker,
-        "labels": labels,
-        "closes": closes,
-        "volumes": volumes,
-        "ohlc": ohlc,
+        "ticker":     ticker,
+        "labels":     labels,
+        "closes":     closes,
+        "volumes":    volumes,
+        "ohlc":       ohlc,
         "volumes_ts": volumes_ts,
+        "dates":      dates,
     }
 
 
-def detect_signals(asset):
+def detect_signals(asset, date_filter=None):
     """Flag 1-minute candles where price moved >1% or volume spiked >2x average."""
-    signals = []
-    closes  = asset["closes"]
-    volumes = asset["volumes"]
-    labels  = asset["labels"]
+    signals    = []
+    closes     = asset["closes"]
+    volumes    = asset["volumes"]
+    labels     = asset["labels"]
     avg_volume = sum(volumes) / len(volumes) if volumes else 1
 
     for i in range(1, len(closes)):
+        if date_filter and not labels[i].startswith(date_filter):
+            continue
         if closes[i - 1] == 0:
             continue
         price_change = abs(closes[i] - closes[i - 1]) / closes[i - 1]
@@ -73,21 +77,34 @@ def detect_signals(asset):
 
 
 def build_dashboard(assets):
+    # Collect all available trading dates across all tickers
+    all_dates = sorted(set(d for a in assets for d in a["dates"]))
+    default_date = all_dates[-1] if all_dates else ""
+
+    ticker_tabs = "".join(
+        f'<button class="tab{"" if i else " active"}" id="tab-{a["ticker"]}" '
+        f'onclick="showTicker(\'{a["ticker"]}\')">{a["ticker"]}</button>'
+        for i, a in enumerate(assets)
+    )
+
+    date_options = "".join(f'<option value="{d}"{"  selected" if d == default_date else ""}>{d}</option>'
+                           for d in all_dates)
+
     cards     = ""
     charts_js = ""
 
-    for asset in assets:
+    for i, asset in enumerate(assets):
         ticker = asset["ticker"]
-        signals = detect_signals(asset)
+        signals = detect_signals(asset, date_filter=default_date)
         signal_rows = "".join(
             f'<tr class="signal-{s["direction"].lower()}">'
             f'<td>{s["date"]}</td><td>{s["direction"]}</td><td>{s["reason"]}</td></tr>'
             for s in signals
         ) or "<tr><td colspan='3'>No signals detected</td></tr>"
 
+        display = "block" if i == 0 else "none"
         cards += f"""
-        <div class="card">
-            <h2>{ticker}</h2>
+        <div class="card" id="card-{ticker}" style="display:{display}">
             <div class="btn-row">
                 <button class="toggle-btn" id="toggle-{ticker}" onclick="toggleChart('{ticker}')">Candlestick</button>
                 <button class="reset-btn" onclick="resetZoom('{ticker}')">Reset Zoom</button>
@@ -98,7 +115,7 @@ def build_dashboard(assets):
             <h3>Signals</h3>
             <table>
                 <thead><tr><th>Date</th><th>Direction</th><th>Reason</th></tr></thead>
-                <tbody>{signal_rows}</tbody>
+                <tbody id="signals-{ticker}">{signal_rows}</tbody>
             </table>
         </div>
         """
@@ -111,14 +128,14 @@ def build_dashboard(assets):
 
         charts_js += f"""
         chartData['{ticker}'] = {{
-            labels:     {labels},
-            closes:     {closes},
-            volumes:    {volumes},
-            ohlc:       {ohlc},
-            volumesTs:  {volumes_ts}
+            labels:    {labels},
+            closes:    {closes},
+            volumes:   {volumes},
+            ohlc:      {ohlc},
+            volumesTs: {volumes_ts}
         }};
         chartMode['{ticker}'] = 'line';
-        charts['{ticker}'] = buildChart('{ticker}');
+        charts['{ticker}']    = buildChart('{ticker}', '{default_date}');
         """
 
     generated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -135,15 +152,20 @@ def build_dashboard(assets):
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
-        body       {{ font-family: sans-serif; background: #0f0f1a; color: #e0e0e0; margin: 0; padding: 20px; }}
-        h1         {{ color: #4f8ef7; }}
-        .grid      {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); gap: 24px; }}
-        .card      {{ background: #1a1a2e; border-radius: 10px; padding: 20px; }}
-        h2         {{ margin-top: 0; color: #7eb8f7; }}
-        h3         {{ color: #aaa; font-size: 0.9em; margin-top: 20px; }}
-        table      {{ width: 100%; border-collapse: collapse; font-size: 0.85em; }}
-        th         {{ text-align: left; color: #888; padding: 4px 8px; border-bottom: 1px solid #333; }}
-        td         {{ padding: 4px 8px; }}
+        body         {{ font-family: sans-serif; background: #0f0f1a; color: #e0e0e0; margin: 0; padding: 20px; }}
+        h1           {{ color: #4f8ef7; }}
+        .controls    {{ display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }}
+        .tabs        {{ display: flex; gap: 6px; flex-wrap: wrap; }}
+        .tab         {{ background: #1a1a2e; color: #7eb8f7; border: 1px solid #333; border-radius: 6px; padding: 6px 16px; cursor: pointer; font-size: 0.9em; }}
+        .tab.active  {{ background: #4f8ef7; color: #fff; border-color: #4f8ef7; }}
+        .tab:hover   {{ border-color: #4f8ef7; }}
+        .date-label  {{ color: #888; font-size: 0.9em; }}
+        select       {{ background: #1a1a2e; color: #e0e0e0; border: 1px solid #4f8ef7; border-radius: 6px; padding: 6px 10px; font-size: 0.9em; cursor: pointer; }}
+        .card        {{ background: #1a1a2e; border-radius: 10px; padding: 20px; }}
+        h3           {{ color: #aaa; font-size: 0.9em; margin-top: 20px; }}
+        table        {{ width: 100%; border-collapse: collapse; font-size: 0.85em; }}
+        th           {{ text-align: left; color: #888; padding: 4px 8px; border-bottom: 1px solid #333; }}
+        td           {{ padding: 4px 8px; }}
         .signal-up   {{ color: #4caf50; }}
         .signal-down {{ color: #f44336; }}
         .meta        {{ color: #555; font-size: 0.8em; margin-top: 30px; }}
@@ -158,24 +180,42 @@ def build_dashboard(assets):
 </head>
 <body>
     <h1>Signal Reader Dashboard</h1>
-    <p>Tracking: {", ".join(TICKERS)} &nbsp;|&nbsp; Interval: {INTERVAL} &nbsp;|&nbsp; Period: {PERIOD}</p>
-    <div class="grid">{cards}</div>
+    <div class="controls">
+        <div class="tabs">{ticker_tabs}</div>
+        <span class="date-label">Day:</span>
+        <select id="date-select" onchange="changeDate(this.value)">{date_options}</select>
+        <span class="date-label" style="color:#555">Interval: {INTERVAL}</span>
+    </div>
+    {cards}
     <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
     <script>
         var charts    = {{}};
         var chartMode = {{}};
         var chartData = {{}};
+        var currentDate = '{default_date}';
 
         var zoomPlugin = {{
             zoom: {{ wheel: {{ enabled: true }}, pinch: {{ enabled: true }}, mode: 'x' }},
             pan:  {{ enabled: true, mode: 'x' }}
         }};
 
-        function buildChart(ticker) {{
+        function filterData(ticker, dateStr) {{
+            var d = chartData[ticker];
+            var idx = d.labels.map((l, i) => l.startsWith(dateStr) ? i : -1).filter(i => i >= 0);
+            return {{
+                labels:    idx.map(i => d.labels[i]),
+                closes:    idx.map(i => d.closes[i]),
+                volumes:   idx.map(i => d.volumes[i]),
+                ohlc:      idx.map(i => d.ohlc[i]),
+                volumesTs: idx.map(i => d.volumesTs[i]),
+            }};
+        }}
+
+        function buildChart(ticker, dateStr) {{
             var wrap = document.getElementById('wrap-' + ticker);
             wrap.innerHTML = '<canvas id="chart-' + ticker + '"></canvas>';
             var ctx  = document.getElementById('chart-' + ticker).getContext('2d');
-            var d    = chartData[ticker];
+            var d    = filterData(ticker, dateStr);
             var mode = chartMode[ticker];
 
             if (mode === 'candlestick') {{
@@ -239,10 +279,25 @@ def build_dashboard(assets):
             }}
         }}
 
+        function showTicker(ticker) {{
+            document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+            document.getElementById('card-' + ticker).style.display = 'block';
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + ticker).classList.add('active');
+        }}
+
+        function changeDate(dateStr) {{
+            currentDate = dateStr;
+            Object.keys(charts).forEach(ticker => {{
+                charts[ticker].destroy();
+                charts[ticker] = buildChart(ticker, dateStr);
+            }});
+        }}
+
         function toggleChart(ticker) {{
             chartMode[ticker] = chartMode[ticker] === 'line' ? 'candlestick' : 'line';
             charts[ticker].destroy();
-            charts[ticker] = buildChart(ticker);
+            charts[ticker] = buildChart(ticker, currentDate);
             var btn = document.getElementById('toggle-' + ticker);
             if (chartMode[ticker] === 'candlestick') {{
                 btn.textContent = 'Line';
