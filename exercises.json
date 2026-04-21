@@ -67,5 +67,88 @@
     "total_pnl": 16.31,
     "total_pnl_pct": 2.04,
     "portfolio_eod": 1016.31
+  },
+  {
+    "title": "Exercise 1 - Buy",
+    "date": "2026-04-21",
+    "starting_capital": 1000.0,
+    "cash_held": 0.0,
+    "trades": [
+      {
+        "ticker": "NVDA",
+        "action": "BUY",
+        "signal": "ORB",
+        "time": "14:11",
+        "entry": 202.43,
+        "eod": 199.9,
+        "allocated": 200.0,
+        "units": 0.988,
+        "pnl": -2.5,
+        "pnl_pct": -1.25,
+        "rating": "MAYBE",
+        "vol_ratio": 2.1
+      },
+      {
+        "ticker": "TSLA",
+        "action": "BUY",
+        "signal": "ORB",
+        "time": "13:59",
+        "entry": 392.43,
+        "eod": 386.35,
+        "allocated": 200.0,
+        "units": 0.5096,
+        "pnl": -3.1,
+        "pnl_pct": -1.55,
+        "rating": "MAYBE",
+        "vol_ratio": 0.7
+      },
+      {
+        "ticker": "AMD",
+        "action": "BUY",
+        "signal": "ORB",
+        "time": "14:04",
+        "entry": 280.45,
+        "eod": 284.56,
+        "allocated": 200.0,
+        "units": 0.7131,
+        "pnl": 2.93,
+        "pnl_pct": 1.47,
+        "rating": "MAYBE",
+        "vol_ratio": 0.8
+      },
+      {
+        "ticker": "COIN",
+        "action": "BUY",
+        "signal": "ORB",
+        "time": "14:15",
+        "entry": 209.18,
+        "eod": 196.0,
+        "allocated": 200.0,
+        "units": 0.9561,
+        "pnl": -12.6,
+        "pnl_pct": -6.3,
+        "rating": "MAYBE",
+        "vol_ratio": 0.7
+      },
+      {
+        "ticker": "META",
+        "action": "BUY",
+        "signal": "ORB",
+        "time": "14:00",
+        "entry": 675.03,
+        "eod": 668.74,
+        "allocated": 200.0,
+        "units": 0.2963,
+        "pnl": -1.86,
+        "pnl_pct": -0.93,
+        "rating": "MAYBE",
+        "vol_ratio": 2.1
+      }
+    ],
+    "total_invested": 1000.0,
+    "eod_value": 982.87,
+    "total_pnl": -17.13,
+    "total_pnl_pct": -1.71,
+    "portfolio_eod": 982.87
   }
 ]
