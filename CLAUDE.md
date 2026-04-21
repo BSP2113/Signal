@@ -57,13 +57,20 @@ The system must prove ALL of the following before real money is ever considered:
 ### EX1 — Buy Only, $1,000
 - Starting capital: $1,000
 - Buy only, no sells
-- One entry per ticker on first qualifying BUY signal (TAKE or MAYBE, EMA9 crosses above EMA21)
+- One entry per ticker on first qualifying BUY signal (TAKE or MAYBE)
 - Allocation: TAKE = $350, MAYBE = $200, never exceed budget
 - Hold to end of day — EOD price = official daily close from yfinance daily bar
 - Log results to `exercises.json` and display in P&L tracker
-- During live sessions: Claude watches in real time from 9:30 AM EST, enters as signals fire, logs at 4:00 PM
-- Historic knowledge is used openly (same edge any experienced trader has); no future data is available in live sessions
-- Morning setup: Terminal 1 `claude --dangerouslySkipPermissions`, Terminal 2 `cd ~/Signal && venv/bin/python3 run.py`
+- Run via: `venv/bin/python3 ex1.py [YYYY-MM-DD]`
+
+**Entry triggers (in order):**
+1. **ORB** — Opening Range Breakout: first close above the 9:30–9:44 high
+2. **VWAP Cross** — price crosses above VWAP after 3+ bars below, with 1.5x+ volume
+
+**Live session setup:**
+- Terminal 1: `claude --dangerouslySkipPermissions`
+- Terminal 2: `cd ~/Signal && venv/bin/python3 run.py`
+- Cron fires ex1.py at 9:30 AM, logs and pushes at 4:00 PM automatically
 
 ### EX2 — TBD
 Definition forthcoming from user.
