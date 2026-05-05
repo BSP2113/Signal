@@ -1,0 +1,362 @@
+[
+  {
+    "date": "2026-03-02",
+    "state": "bearish",
+    "spy_gap_pct": -0.936,
+    "vixy_trend_pct": 3.889,
+    "spy_prev_close": 686.16,
+    "spy_premarket": 679.74
+  },
+  {
+    "date": "2026-03-03",
+    "state": "bearish",
+    "spy_gap_pct": -1.562,
+    "vixy_trend_pct": 1.272,
+    "spy_prev_close": 686.35,
+    "spy_premarket": 675.63
+  },
+  {
+    "date": "2026-03-04",
+    "state": "bearish",
+    "spy_gap_pct": 0.32,
+    "vixy_trend_pct": 4.528,
+    "spy_prev_close": 680.29,
+    "spy_premarket": 682.47
+  },
+  {
+    "date": "2026-03-05",
+    "state": "neutral",
+    "spy_gap_pct": -0.203,
+    "vixy_trend_pct": -3.655,
+    "spy_prev_close": 685.13,
+    "spy_premarket": 683.74
+  },
+  {
+    "date": "2026-03-06",
+    "state": "bearish",
+    "spy_gap_pct": -0.877,
+    "vixy_trend_pct": 6.639,
+    "spy_prev_close": 681.4,
+    "spy_premarket": 675.43
+  },
+  {
+    "date": "2026-03-09",
+    "state": "bearish",
+    "spy_gap_pct": -0.745,
+    "vixy_trend_pct": 13.669,
+    "spy_prev_close": 672.44,
+    "spy_premarket": 667.43
+  },
+  {
+    "date": "2026-03-10",
+    "state": "neutral",
+    "spy_gap_pct": 0.005,
+    "vixy_trend_pct": -9.649,
+    "spy_prev_close": 678.3,
+    "spy_premarket": 678.34
+  },
+  {
+    "date": "2026-03-11",
+    "state": "bearish",
+    "spy_gap_pct": 0.149,
+    "vixy_trend_pct": 4.795,
+    "spy_prev_close": 677.13,
+    "spy_premarket": 678.14
+  },
+  {
+    "date": "2026-03-12",
+    "state": "bearish",
+    "spy_gap_pct": -0.788,
+    "vixy_trend_pct": -4.545,
+    "spy_prev_close": 676.34,
+    "spy_premarket": 671.01
+  },
+  {
+    "date": "2026-03-13",
+    "state": "bearish",
+    "spy_gap_pct": 0.603,
+    "vixy_trend_pct": 6.829,
+    "spy_prev_close": 666.05,
+    "spy_premarket": 670.07
+  },
+  {
+    "date": "2026-03-16",
+    "state": "bullish",
+    "spy_gap_pct": 0.886,
+    "vixy_trend_pct": 1.801,
+    "spy_prev_close": 662.3,
+    "spy_premarket": 668.16
+  },
+  {
+    "date": "2026-03-17",
+    "state": "bullish",
+    "spy_gap_pct": 0.543,
+    "vixy_trend_pct": -7.636,
+    "spy_prev_close": 668.97,
+    "spy_premarket": 672.6
+  },
+  {
+    "date": "2026-03-18",
+    "state": "neutral",
+    "spy_gap_pct": -0.395,
+    "vixy_trend_pct": -1.5,
+    "spy_prev_close": 670.75,
+    "spy_premarket": 668.1
+  },
+  {
+    "date": "2026-03-19",
+    "state": "bearish",
+    "spy_gap_pct": -0.854,
+    "vixy_trend_pct": 8.814,
+    "spy_prev_close": 661.54,
+    "spy_premarket": 655.89
+  },
+  {
+    "date": "2026-03-20",
+    "state": "bearish",
+    "spy_gap_pct": -0.615,
+    "vixy_trend_pct": -3.008,
+    "spy_prev_close": 659.87,
+    "spy_premarket": 655.81
+  },
+  {
+    "date": "2026-03-23",
+    "state": "bearish",
+    "spy_gap_pct": 1.392,
+    "vixy_trend_pct": 7.277,
+    "spy_prev_close": 648.48,
+    "spy_premarket": 657.5
+  },
+  {
+    "date": "2026-03-24",
+    "state": "bearish",
+    "spy_gap_pct": -0.61,
+    "vixy_trend_pct": -5.409,
+    "spy_prev_close": 655.37,
+    "spy_premarket": 651.37
+  },
+  {
+    "date": "2026-03-25",
+    "state": "bullish",
+    "spy_gap_pct": 0.966,
+    "vixy_trend_pct": 2.663,
+    "spy_prev_close": 653.2,
+    "spy_premarket": 659.51
+  },
+  {
+    "date": "2026-03-26",
+    "state": "bearish",
+    "spy_gap_pct": -0.789,
+    "vixy_trend_pct": -2.328,
+    "spy_prev_close": 656.74,
+    "spy_premarket": 651.56
+  },
+  {
+    "date": "2026-03-27",
+    "state": "bearish",
+    "spy_gap_pct": -0.488,
+    "vixy_trend_pct": 7.182,
+    "spy_prev_close": 645.11,
+    "spy_premarket": 641.96
+  },
+  {
+    "date": "2026-03-31",
+    "state": "bullish",
+    "spy_gap_pct": 1.195,
+    "vixy_trend_pct": -1.006,
+    "spy_prev_close": 632.02,
+    "spy_premarket": 639.57
+  },
+  {
+    "date": "2026-04-01",
+    "state": "bullish",
+    "spy_gap_pct": 0.627,
+    "vixy_trend_pct": -9.518,
+    "spy_prev_close": 650.12,
+    "spy_premarket": 654.2
+  },
+  {
+    "date": "2026-04-02",
+    "state": "bearish",
+    "spy_gap_pct": -1.271,
+    "vixy_trend_pct": -2.13,
+    "spy_prev_close": 655.18,
+    "spy_premarket": 646.86
+  },
+  {
+    "date": "2026-04-06",
+    "state": "neutral",
+    "spy_gap_pct": 0.149,
+    "vixy_trend_pct": 0.149,
+    "spy_prev_close": 655.76,
+    "spy_premarket": 656.74
+  },
+  {
+    "date": "2026-04-07",
+    "state": "neutral",
+    "spy_gap_pct": -0.345,
+    "vixy_trend_pct": -2.56,
+    "spy_prev_close": 658.88,
+    "spy_premarket": 656.61
+  },
+  {
+    "date": "2026-04-08",
+    "state": "bearish",
+    "spy_gap_pct": 2.584,
+    "vixy_trend_pct": 3.422,
+    "spy_prev_close": 659.23,
+    "spy_premarket": 676.26
+  },
+  {
+    "date": "2026-04-09",
+    "state": "neutral",
+    "spy_gap_pct": -0.198,
+    "vixy_trend_pct": -9.749,
+    "spy_prev_close": 676.0,
+    "spy_premarket": 674.66
+  },
+  {
+    "date": "2026-04-10",
+    "state": "neutral",
+    "spy_gap_pct": 0.245,
+    "vixy_trend_pct": -3.813,
+    "spy_prev_close": 679.87,
+    "spy_premarket": 681.53
+  },
+  {
+    "date": "2026-04-13",
+    "state": "neutral",
+    "spy_gap_pct": -0.25,
+    "vixy_trend_pct": 1.276,
+    "spy_prev_close": 679.35,
+    "spy_premarket": 677.65
+  },
+  {
+    "date": "2026-04-14",
+    "state": "neutral",
+    "spy_gap_pct": 0.286,
+    "vixy_trend_pct": -3.847,
+    "spy_prev_close": 686.0,
+    "spy_premarket": 687.96
+  },
+  {
+    "date": "2026-04-15",
+    "state": "neutral",
+    "spy_gap_pct": 0.148,
+    "vixy_trend_pct": -1.468,
+    "spy_prev_close": 694.36,
+    "spy_premarket": 695.39
+  },
+  {
+    "date": "2026-04-16",
+    "state": "neutral",
+    "spy_gap_pct": 0.16,
+    "vixy_trend_pct": 0.55,
+    "spy_prev_close": 699.75,
+    "spy_premarket": 700.87
+  },
+  {
+    "date": "2026-04-17",
+    "state": "bullish",
+    "spy_gap_pct": 0.664,
+    "vixy_trend_pct": -0.194,
+    "spy_prev_close": 701.53,
+    "spy_premarket": 706.19
+  },
+  {
+    "date": "2026-04-20",
+    "state": "neutral",
+    "spy_gap_pct": -0.145,
+    "vixy_trend_pct": -1.113,
+    "spy_prev_close": 710.06,
+    "spy_premarket": 709.03
+  },
+  {
+    "date": "2026-04-21",
+    "state": "neutral",
+    "spy_gap_pct": 0.111,
+    "vixy_trend_pct": 1.251,
+    "spy_prev_close": 708.79,
+    "spy_premarket": 709.58
+  },
+  {
+    "date": "2026-04-22",
+    "state": "bullish",
+    "spy_gap_pct": 0.705,
+    "vixy_trend_pct": 1.871,
+    "spy_prev_close": 703.91,
+    "spy_premarket": 708.87
+  },
+  {
+    "date": "2026-04-23",
+    "state": "neutral",
+    "spy_gap_pct": -0.221,
+    "vixy_trend_pct": -1.178,
+    "spy_prev_close": 711.2,
+    "spy_premarket": 709.62
+  },
+  {
+    "date": "2026-04-24",
+    "state": "neutral",
+    "spy_gap_pct": 0.263,
+    "vixy_trend_pct": -0.105,
+    "spy_prev_close": 708.41,
+    "spy_premarket": 710.27
+  },
+  {
+    "date": "2026-04-27",
+    "state": "neutral",
+    "spy_gap_pct": -0.118,
+    "vixy_trend_pct": 0.913,
+    "spy_prev_close": 713.97,
+    "spy_premarket": 713.13
+  },
+  {
+    "date": "2026-04-28",
+    "state": "bearish",
+    "spy_gap_pct": -0.589,
+    "vixy_trend_pct": -3.2,
+    "spy_prev_close": 715.16,
+    "spy_premarket": 710.95
+  },
+  {
+    "date": "2026-04-29",
+    "state": "neutral",
+    "spy_gap_pct": -0.17,
+    "vixy_trend_pct": -1.653,
+    "spy_prev_close": 711.68,
+    "spy_premarket": 710.47
+  },
+  {
+    "date": "2026-04-30",
+    "state": "neutral",
+    "spy_gap_pct": 0.294,
+    "vixy_trend_pct": 2.393,
+    "spy_prev_close": 711.59,
+    "spy_premarket": 713.68
+  },
+  {
+    "date": "2026-05-01",
+    "state": "bullish",
+    "spy_gap_pct": 0.363,
+    "vixy_trend_pct": -3.087,
+    "spy_prev_close": 718.41,
+    "spy_premarket": 721.02
+  },
+  {
+    "date": "2026-05-04",
+    "spy_gap_pct": -0.064,
+    "vixy_trend_pct": 1.241,
+    "spy_prev_close": 720.49,
+    "spy_premarket": 720.03,
+    "state": "neutral"
+  },
+  {
+    "date": "2026-05-05",
+    "spy_gap_pct": 0.471,
+    "vixy_trend_pct": 1.242,
+    "spy_prev_close": 718.09,
+    "spy_premarket": 721.47,
+    "state": "bullish"
+  }
+]

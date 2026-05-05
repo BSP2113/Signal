@@ -25,8 +25,16 @@
 - Per-day growth opportunity log — 3 specific, actionable notes per trading day
 - Ticker swap: BBAI and NFLX removed (0% win rate over 12 days); KOPN and CRDO added (Apr 28, 2026)
 - Ticker swap: CRWD removed (worst performer, -$51.03, 42% win rate over 19 trades); DELL added (May 2, 2026) — DELL tested at 62% win rate, +$109.84 over 30 days in isolation
+- Ticker swap: RKLB removed May 3, 2026 — 29% win rate, -$23.61 over 17 trades; UPST added May 3, 2026 — 62% win rate, +$63.75 over 8 trades in 30-day backtest
+- RDDT removed May 3, 2026 — 21% win rate, P&L almost entirely from one $33.97 outlier; no replacement cleared threshold (HIMS best at 41% WR)
+- PM_ORB signal added May 5, 2026 — post-lunch consolidation breakout above 12:00–12:44 range high, entries before 13:30, standard ORB scoring (TAKE/MAYBE/SKIP); same exit rules as ORB
+- Reallocation logic added May 5, 2026 (EX1 + EX2) — when a TAKE signal fires after 11:00am and budget is short, sell the worst open position (PnL% < +0.5%) to free capital; position closed at current price with exit_reason REALLOC
+- Market state historical fix May 5, 2026 — market_states_historical.json stores raw spy_gap_pct/vixy_trend_pct; ex1/ex2 now re-derive BULL/NEUT/BEAR with current constants so threshold changes take effect retroactively
+- SPY_BULL threshold lowered from 0.5% to 0.3% May 5, 2026 — fixed "always neutral" bug where +0.3–0.49% SPY gap days were misclassified; 30-day review pending (May 1 and May 5 reclassified BULL but both losing days)
+- monitor.py created May 5, 2026 — live intraday scanner, polls all 17 tickers every 5 minutes 9:30–16:00, alerts on new TAKE-rated UP signals after 11:00am with 30-min per-ticker cooldown
 
 ### LESSONS LEARNED
+- **Early weakness exit (EARLY_WEAK)**: Shipped May 3, 2026. At T+45 minutes, if price is below entry AND below where it was 5 bars ago, exit early. TSLA and PLTR excluded — they often look weak at T+45 but recover by T+90. Three variants tested (20-min, 45-min, 60-min); 45-min excluding TSLA/PLTR was the only one consistent across both 15-day live and 38-day backfill windows. Monitor TSLA and PLTR — if they start slipping, revisit their exclusion.
 - **General**: Counter-trend entries are luck, not skill — avoid unless volume strongly confirms
 - **EOD pricing**: Always use the official daily close from the Alpaca daily bar, not the last 1-minute bar (can differ significantly). ex1.py and ex2.py fetch this via `TimeFrame.Day` at the start of each run.
 - **Re-entries**: Going back into a ticker that just stopped you out is net negative over 12 days — monitoring at 30-day mark before dropping
@@ -38,3 +46,7 @@
 - **Gap-and-go catches what ORB misses**: Strong gap-up tickers never pull back to the ORB high. The GAP_GO signal added +$204 over 38 backfill days. Apr 24 alone: ARM +7.7% gap hit take-profit in 3 minutes (+$51), SMCI +3.2% take-profit (+$44)
 - **BEAR days + all-MAYBE = structural sweep risk**: Apr 28 saw 7 consecutive stop losses. BEAR allocations (10%) kept total damage to $59. The model has no mechanism to observe early session weakness before committing capital
 - **Gap-and-go is self-limiting on BEAR days**: The signal requires positive gaps ≥3%, which don't appear on broad selloff days. It adds exposure only when there's genuine upside momentum
+- **PM_ORB fires rarely but captures real moves**: Post-lunch breakouts above the 12:00–12:44 range high appeared on strong trending days in the backfill. The 13:30 cutoff keeps it from chasing late entries; monitor for false positives on choppy days
+- **Reallocation is rarely triggered**: Most TAKE signals fire before 11am, so the reallocation window (11:00+) is typically after the morning ORB window closes. Will become more meaningful as PM_ORB generates afternoon TAKE signals
+- **BULL threshold sensitivity (0.3% vs 0.5%)**: Lowering the threshold from 0.5% to 0.3% reclassified 2 days in the live window (May 1, May 5) — both turned out to be losing days under BULL allocations. Bigger BULL position sizes amplified losses on those days. 30-day review scheduled to decide whether to raise back to 0.4–0.45%
+- **Extended close window tested and reverted**: Extending ENTRY_CLOSE from 14:00 to 15:45 was -$23 over 17 days. Revisit list includes intermediate times (14:30, 15:00, 15:15, 15:30) to test separately

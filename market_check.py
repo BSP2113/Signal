@@ -20,7 +20,7 @@ from alpaca.data.timeframe import TimeFrame
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ET       = "America/New_York"
 
-SPY_BULL       =  0.005   # SPY gap > +0.5% = bullish
+SPY_BULL       =  0.003   # SPY gap > +0.3% = bullish
 SPY_BEAR       = -0.005   # SPY gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY pre-market up >3% = fear rising, adds bearish weight
 

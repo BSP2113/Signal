@@ -1,9 +1,11 @@
 """
-ex2.py — Exercise 2: Re-entry, $5,000
+ex2.py — Exercise 2: Re-entry + Afternoon Breakout, $5,000
 
 Builds on Exercise 1. Same ORB entry logic, same exit rules.
 Added: after a STOP_LOSS or TRAILING_STOP exit, looks for one re-entry
 on the same ticker if price forms a new breakout before 13:30.
+Added: afternoon breakout scan — from 13:00, watches all tickers for a
+volume spike 50x+ morning average with close above morning high.
 
 Re-entry rules:
   - Only after STOP_LOSS or TRAILING_STOP (not after TAKE_PROFIT or TIME_CLOSE)
@@ -13,6 +15,13 @@ Re-entry rules:
   - Allocation: 75% of original position size
   - Same exit rules apply (take profit 3%, trailing stop, stop loss 1.5%, time close 2pm)
   - SPY relative strength gate still applies to re-entries
+
+Afternoon breakout rules:
+  - Scan all tickers from 13:00 onward
+  - Trigger: first bar where close > morning high AND volume >= 50x morning avg
+  - Always TAKE-rated; allocation = 75% of normal TAKE size * ATR modifier
+  - SPY relative strength gate applies
+  - Time close: 15:30 (instead of 14:00)
 
 Run manually:  venv/bin/python3 ex2.py [YYYY-MM-DD]
 Cron calls it: venv/bin/python3 ex2.py  (defaults to today)
@@ -29,7 +38,7 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
 TICKERS     = ["NVDA", "TSLA", "AMD", "COIN", "META", "PLTR", "SMCI", "CRDO", "IONQ", "RIVN", "DELL", "KOPN",
-               "SHOP", "ASTS", "ARM", "DKNG", "RKLB", "RDDT"]
+               "SHOP", "ASTS", "ARM", "DKNG", "UPST"]
 BUDGET      = 5000.0
 ORB_BARS    = 15
 ORB_CUTOFF  = "11:30"
@@ -38,12 +47,15 @@ TAKE_PROFIT = 0.03
 TRAIL_STOP  = 0.020
 TRAIL_LOCK  = 0.01
 STOP_LOSS   = 0.015
-NO_PROGRESS_MINS = 90
+NO_PROGRESS_MINS    = 90   # exit flat/negative positions this many minutes after entry
+EARLY_WEAK_MINS     = 45   # cut failing trades 45 min after entry
+EARLY_WEAK_LOOKBACK = 5    # bars back to confirm still moving down
+EARLY_WEAK_SKIP     = {"TSLA", "PLTR"}  # slow starters — excluded; monitor for revisit
 DAY_LOSS_LIMIT = -75.0
 GAP_FILTER          = 0.04
 GAP_GO_THRESH       = 0.03   # positive gap >= 3% qualifies for gap-and-go
 GAP_GO_WINDOW       = "09:39"  # scan only the first 10 minutes for gap-and-go
-GAP_GO_SKIP_TICKERS = {"RKLB"} # 0/4 win rate — excluded from gap-and-go
+GAP_GO_SKIP_TICKERS = set()
 ATR_DAYS       = 14
 ATR_MIN_MOD    = 0.40
 ATR_MAX_MOD    = 1.50
@@ -52,13 +64,28 @@ MAYBE_STREAK_CUT = 0.50
 DRAWDOWN_WINDOW    = 5
 DRAWDOWN_THRESHOLD = 0.015
 DRAWDOWN_CUT       = 0.50
+SPY_BULL       =  0.003   # premarket gap > +0.3% = bullish (matches market_check.py)
+SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
+VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
+REALLOC_MIN_TIME    = "11:00"  # only reallocate after the morning ORB window
+REALLOC_MAX_PNL_PCT = 0.5      # only sell positions currently below +0.5% gain
+PM_ORB_RANGE_START  = "12:00"  # afternoon consolidation range start
+PM_ORB_RANGE_END    = "12:44"  # afternoon consolidation range end
+PM_ORB_CUTOFF       = "13:30"  # latest allowed PM_ORB entry
+PM_ORB_MIN_BARS     = 10       # minimum bars in range to form valid level
 ALLOC_PCT_BULL = {"TAKE": 0.35, "MAYBE": 0.20}
 ALLOC_PCT_NEUT = {"TAKE": 0.30, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
 
+TAKE_TRAIL_GATE    = "13:00"   # TAKE signals: trail exit blocked before this time
 REENTRY_CUTOFF     = "13:30"   # how late we'll still attempt a re-entry
 REENTRY_ALLOC_MULT = 0.75      # re-entry gets 75% of original allocation
 REENTRY_SETTLE     = 5         # bars to wait after exit before scanning for re-entry
+
+AFTERNOON_VOL_THRESH = 50      # volume must be 50x morning average to qualify
+AFTERNOON_SCAN_START = "13:00" # begin scanning for afternoon breakouts
+AFTERNOON_ALLOC_MULT = 0.75    # 75% of normal TAKE allocation
+AFTERNOON_TIME_CLOSE = "15:30" # afternoon trades exit by 3:30pm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ET       = "America/New_York"
@@ -159,7 +186,9 @@ def score_signal(closes_so_far, vol, avg_volume):
     else:            return "SKIP",  vol_ratio
 
 
-def find_exit(closes, times, entry_price, entry_bar):
+def find_exit(closes, times, entry_price, entry_bar, ticker=None, time_close=None, rating=None):
+    if time_close is None:
+        time_close = ENTRY_CLOSE
     peak         = entry_price
     consec_above = 0       # consecutive closes >= entry+1% (trail arm requires 2)
     trail_armed  = False
@@ -167,6 +196,8 @@ def find_exit(closes, times, entry_price, entry_bar):
     entry_mins   = int(times[entry_bar][:2]) * 60 + int(times[entry_bar][3:])
     t90_mins     = entry_mins + NO_PROGRESS_MINS
     t90_passed   = False
+    tew_mins     = entry_mins + EARLY_WEAK_MINS
+    tew_passed   = False
 
     for i in range(entry_bar + 1, len(closes)):
         price    = closes[i]
@@ -182,11 +213,12 @@ def find_exit(closes, times, entry_price, entry_bar):
         if consec_above >= 2:
             trail_armed = True
 
-        if times[i] >= ENTRY_CLOSE:
+        if times[i] >= time_close:
             return {"bar": i, "time": times[i], "price": price, "reason": "TIME_CLOSE"}
         if price >= entry_price * (1 + TAKE_PROFIT):
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
-        if trail_armed and price <= peak * (1 - TRAIL_STOP):
+        trail_gated = (rating == "TAKE" and times[i] < TAKE_TRAIL_GATE)
+        if trail_armed and not trail_gated and price <= peak * (1 - TRAIL_STOP):
             return {"bar": i, "time": times[i], "price": price, "reason": "TRAILING_STOP"}
         if price <= entry_price * (1 - STOP_LOSS):
             return {"bar": i, "time": times[i], "price": price, "reason": "STOP_LOSS"}
@@ -194,11 +226,17 @@ def find_exit(closes, times, entry_price, entry_bar):
             t90_passed = True
             if price <= entry_price:
                 return {"bar": i, "time": times[i], "price": price, "reason": "NO_PROGRESS"}
+        if ticker not in EARLY_WEAK_SKIP and not tew_passed and bar_mins >= tew_mins:
+            tew_passed = True
+            if price < entry_price:
+                lookback = max(entry_bar + 1, i - EARLY_WEAK_LOOKBACK)
+                if price < closes[lookback]:
+                    return {"bar": i, "time": times[i], "price": price, "reason": "EARLY_WEAK"}
 
     return {"bar": len(closes) - 1, "time": times[-1], "price": closes[-1], "reason": "EOD"}
 
 
-def find_orb_entry(closes, volumes, times, spy_by_time):
+def find_orb_entry(closes, volumes, times, spy_by_time, ticker=None):
     """Return (entry, exit) for the first valid ORB breakout, or None."""
     if len(closes) <= ORB_BARS:
         return None
@@ -213,6 +251,12 @@ def find_orb_entry(closes, volumes, times, spy_by_time):
             rating, vr = score_signal(closes[:i+1], volumes[i], avg_vol)
             if rating == "SKIP":
                 continue
+            # Pre-10:00 ORB TAKE signals are 0/9 wins across 53 days (-$154).
+            # Opening-range highs are set during the noisiest 15 min of the day;
+            # first breakouts before 10am are crowded fakeouts, not real momentum.
+            # MAYBE signals before 10:00 are unaffected (positive net across both datasets).
+            if rating == "TAKE" and times[i] < "10:00":
+                continue
             if spy_by_time and day_open:
                 ticker_chg = (closes[i] - day_open) / day_open
                 spy_ts     = sorted(t for t in spy_by_time if t <= times[i])
@@ -224,12 +268,12 @@ def find_orb_entry(closes, volumes, times, spy_by_time):
                         return None
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "ORB"}
-            exit_ = find_exit(closes, times, entry["price"], entry["bar"])
+            exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker, rating=rating)
             return (entry, exit_)
     return None
 
 
-def find_gap_go_entry(closes, highs, volumes, times, spy_by_time):
+def find_gap_go_entry(closes, highs, volumes, times, spy_by_time, ticker=None):
     """Return (entry, exit) for a gap-and-go signal (first 10 min), or None."""
     if not closes:
         return None
@@ -256,12 +300,12 @@ def find_gap_go_entry(closes, highs, volumes, times, spy_by_time):
                         return None
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "GAP_GO"}
-            exit_ = find_exit(closes, times, entry["price"], entry["bar"])
+            exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker, rating=rating)
             return (entry, exit_)
     return None
 
 
-def find_reentry(closes, volumes, times, exit_bar, spy_by_time, day_open):
+def find_reentry(closes, volumes, times, exit_bar, spy_by_time, day_open, ticker=None):
     """
     After a stop/trail exit, find one TAKE-rated re-entry.
     Waits REENTRY_SETTLE bars for consolidation, then watches for a close
@@ -292,8 +336,87 @@ def find_reentry(closes, volumes, times, exit_bar, spy_by_time, day_open):
                         return None
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "REENTRY"}
-            exit_ = find_exit(closes, times, entry["price"], entry["bar"])
+            exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker, rating=rating)
             return (entry, exit_)
+    return None
+
+
+def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None):
+    """Post-lunch consolidation breakout: first close above 12:00–12:44 range high."""
+    avg_vol  = sum(volumes) / len(volumes) if volumes else 1
+    day_open = closes[0]
+
+    pm_range = [closes[i] for i in range(len(times))
+                if PM_ORB_RANGE_START <= times[i] <= PM_ORB_RANGE_END]
+    if len(pm_range) < PM_ORB_MIN_BARS:
+        return None
+    pm_high = max(pm_range)
+
+    for i in range(len(times)):
+        if times[i] <= PM_ORB_RANGE_END:
+            continue
+        if times[i] > PM_ORB_CUTOFF:
+            break
+        if closes[i] > pm_high:
+            rating, vr = score_signal(closes[:i+1], volumes[i], avg_vol)
+            if rating == "SKIP":
+                continue
+            if spy_by_time and day_open:
+                ticker_chg = (closes[i] - day_open) / day_open
+                spy_times  = sorted(t for t in spy_by_time if t <= times[i])
+                if spy_times:
+                    spy_open = spy_by_time[spy_times[0]]
+                    spy_now  = spy_by_time[spy_times[-1]]
+                    spy_chg  = (spy_now - spy_open) / spy_open if spy_open else 0
+                    if ticker_chg <= spy_chg:
+                        return None
+            entry = {"bar": i, "time": times[i], "price": closes[i],
+                     "rating": rating, "vol_ratio": round(vr, 1), "signal": "PM_ORB"}
+            return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker))
+
+    return None
+
+
+def _price_at(ticker, hhmm, ticker_cache):
+    """Return the latest 1-min close at or before hhmm for ticker."""
+    td     = ticker_cache.get(ticker, {})
+    times  = td.get("times", [])
+    closes = td.get("closes", [])
+    for i in range(len(times) - 1, -1, -1):
+        if times[i] <= hhmm:
+            return closes[i]
+    return closes[0] if closes else 0.0
+
+
+def find_afternoon_entry(closes, highs, volumes, times, morning_high, morning_avg_vol, spy_by_time, day_open, ticker=None):
+    """
+    From 13:00 onward, find first bar where close > morning high and volume >= 50x morning avg.
+    Always TAKE-rated. Time close is 15:30 instead of the normal 14:00.
+    """
+    if not closes or morning_avg_vol < 1:
+        return None
+    for i, t in enumerate(times):
+        if t < AFTERNOON_SCAN_START:
+            continue
+        if closes[i] <= morning_high:
+            continue
+        vol_ratio = volumes[i] / morning_avg_vol
+        if vol_ratio < AFTERNOON_VOL_THRESH:
+            continue
+        if spy_by_time and day_open:
+            ticker_chg = (closes[i] - day_open) / day_open
+            spy_ts     = sorted(s for s in spy_by_time if s <= times[i])
+            if spy_ts:
+                spy_open = spy_by_time[spy_ts[0]]
+                spy_now  = spy_by_time[spy_ts[-1]]
+                spy_chg  = (spy_now - spy_open) / spy_open if spy_open else 0
+                if ticker_chg <= spy_chg:
+                    return None
+        entry = {"bar": i, "time": times[i], "price": closes[i],
+                 "rating": "TAKE", "vol_ratio": round(vol_ratio, 1), "signal": "AFTERNOON"}
+        exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker,
+                          time_close=AFTERNOON_TIME_CLOSE, rating="TAKE")
+        return (entry, exit_)
     return None
 
 
@@ -334,29 +457,35 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
         atr_modifier = {}
 
     state_path     = os.path.join(BASE_DIR, "market_state.json")
+    hist_path      = os.path.join(BASE_DIR, "market_states_historical.json")
     market_state   = "neutral"
     spy_gap_pct    = 0.0
     vixy_trend_pct = 0.0
+
     if os.path.exists(state_path):
         with open(state_path) as f:
             ms = json.load(f)
         if ms.get("date") == trade_date:
-            market_state   = ms.get("state", "neutral")
             spy_gap_pct    = ms.get("spy_gap_pct", 0.0)
             vixy_trend_pct = ms.get("vixy_trend_pct", 0.0)
-            print(f"  Market state: {market_state.upper()} "
-                  f"(SPY {spy_gap_pct:+.2f}%, VIXY {vixy_trend_pct:+.2f}%)")
-        else:
-            print(f"  Warning: market_state.json is from {ms.get('date')}, not {trade_date} — using neutral")
-    else:
-        print(f"  Warning: market_state.json not found — using neutral")
 
-    if spy_gap_pct / 100 <= -0.003 or vixy_trend_pct / 100 >= 0.03:
-        tight_state = "bearish"
-    elif spy_gap_pct / 100 >= 0.005 and vixy_trend_pct / 100 < 0.03:
-        tight_state = "bullish"
+    if spy_gap_pct == 0.0 and os.path.exists(hist_path):
+        with open(hist_path) as f:
+            hist_map = {e["date"]: e for e in json.load(f)}
+        if trade_date in hist_map:
+            hd = hist_map[trade_date]
+            spy_gap_pct    = hd.get("spy_gap_pct", 0.0)
+            vixy_trend_pct = hd.get("vixy_trend_pct", 0.0)
+
+    if spy_gap_pct / 100 <= SPY_BEAR or vixy_trend_pct / 100 >= VIXY_SURGE:
+        market_state = "bearish"
+    elif spy_gap_pct / 100 >= SPY_BULL and vixy_trend_pct / 100 < VIXY_SURGE:
+        market_state = "bullish"
     else:
-        tight_state = "neutral"
+        market_state = "neutral"
+    tight_state = market_state
+
+    print(f"  Market state: {market_state.upper()} (SPY {spy_gap_pct:+.2f}%, VIXY {vixy_trend_pct:+.2f}%)")
 
     def base_alloc(rating):
         if market_state == "bullish": return round(starting_balance * ALLOC_PCT_BULL[rating], 2)
@@ -393,9 +522,10 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
     if not backfill:
         print(f"  Wallet balance: ${starting_balance:,.2f}")
 
-    potential = []
-    entries   = []
-    skipped   = []
+    potential    = []
+    entries      = []
+    skipped      = []
+    ticker_cache = {}   # stores bar data for the afternoon scan
 
     for ticker in TICKERS:
         print(f"  Analyzing {ticker}...")
@@ -421,6 +551,19 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
         volumes = [int(v) for v in today["volume"].tolist()]
         times   = [t.strftime("%H:%M") for t in today.index]
 
+        # Cache full bar data for afternoon scan (runs after main loop)
+        morning_vols  = [v for v, t in zip(volumes, times) if t < AFTERNOON_SCAN_START]
+        morning_highs = [h for h, t in zip(highs,   times) if t < AFTERNOON_SCAN_START]
+        ticker_cache[ticker] = {
+            "closes":           closes,
+            "highs":            highs,
+            "volumes":          volumes,
+            "times":            times,
+            "morning_high":     max(morning_highs) if morning_highs else 0,
+            "morning_avg_vol":  sum(morning_vols) / len(morning_vols) if morning_vols else 0,
+            "day_open":         closes[0] if closes else None,
+        }
+
         gap_pct  = 0.0
         skip_orb = False
         if ticker in prior_closes and closes:
@@ -429,7 +572,7 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
 
         # Gap-and-go: positive gap >= 3%, scan first 10 min (no re-entry for gap-and-go)
         if gap_pct >= GAP_GO_THRESH and ticker not in GAP_GO_SKIP_TICKERS:
-            gag = find_gap_go_entry(closes, highs, volumes, times, spy_by_time)
+            gag = find_gap_go_entry(closes, highs, volumes, times, spy_by_time, ticker=ticker)
             if not gag:
                 skipped.append(f"{ticker}(gap-go-no-signal)")
                 continue
@@ -468,7 +611,7 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
             continue
 
         # --- Original ORB entry ---
-        orb = find_orb_entry(closes, volumes, times, spy_by_time)
+        orb = find_orb_entry(closes, volumes, times, spy_by_time, ticker=ticker)
         if not orb:
             skipped.append(f"{ticker}(no signal)")
             continue
@@ -507,7 +650,7 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
         if exit_["reason"] not in ("STOP_LOSS", "TRAILING_STOP"):
             continue
 
-        re = find_reentry(closes, volumes, times, exit_["bar"], spy_by_time, closes[0])
+        re = find_reentry(closes, volumes, times, exit_["bar"], spy_by_time, closes[0], ticker=ticker)
         if not re:
             continue
 
@@ -537,9 +680,83 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
             "pnl_pct":     round((re_exit["price"] - re_entry["price"]) / re_entry["price"] * 100, 2),
         })
 
+    # --- Afternoon scans (all tickers, independent of morning trades) ---
+    for ticker in TICKERS:
+        if ticker not in ticker_cache:
+            continue
+        d        = ticker_cache[ticker]
+        modifier = atr_modifier.get(ticker, 1.0)
+
+        # Existing high-volume afternoon breakout
+        af = find_afternoon_entry(
+            d["closes"], d["highs"], d["volumes"], d["times"],
+            d["morning_high"], d["morning_avg_vol"],
+            spy_by_time, d["day_open"], ticker=ticker,
+        )
+        if af:
+            af_entry, af_exit = af
+            af_alloc  = round(base_alloc("TAKE") * modifier * AFTERNOON_ALLOC_MULT, 2)
+            if in_drawdown:
+                af_alloc = round(af_alloc * DRAWDOWN_CUT, 2)
+            af_pnl    = round((af_exit["price"] - af_entry["price"]) / af_entry["price"] * af_alloc, 2)
+            prior_cnt = sum(1 for p in potential if p["ticker"] == ticker)
+            potential.append({
+                "_id":         f"{ticker}#AF",
+                "_parent":     None,
+                "ticker":      ticker,
+                "trade_num":   prior_cnt + 1,
+                "signal":      "AFTERNOON",
+                "time":        af_entry["time"],
+                "entry":       af_entry["price"],
+                "exit":        af_exit["price"],
+                "exit_time":   af_exit["time"],
+                "exit_reason": af_exit["reason"],
+                "allocated":   af_alloc,
+                "rating":      af_entry["rating"],
+                "vol_ratio":   af_entry["vol_ratio"],
+                "gap_pct":     0.0,
+                "atr_modifier": modifier,
+                "pnl":         af_pnl,
+                "pnl_pct":     round((af_exit["price"] - af_entry["price"]) / af_entry["price"] * 100, 2),
+            })
+
+        # PM_ORB: post-lunch consolidation breakout
+        pm = find_pm_orb(d["closes"], d["volumes"], d["times"],
+                         ticker=ticker, spy_by_time=spy_by_time)
+        if pm:
+            pm_entry, pm_exit = pm
+            pm_alloc = round(base_alloc(pm_entry["rating"]) * modifier, 2)
+            if in_streak and pm_entry["rating"] == "MAYBE":
+                pm_alloc = round(pm_alloc * MAYBE_STREAK_CUT, 2)
+            if in_drawdown:
+                pm_alloc = round(pm_alloc * DRAWDOWN_CUT, 2)
+            pm_pnl     = round((pm_exit["price"] - pm_entry["price"]) / pm_entry["price"] * pm_alloc, 2)
+            pm_pnl_pct = round((pm_exit["price"] - pm_entry["price"]) / pm_entry["price"] * 100, 2)
+            prior_cnt  = sum(1 for p in potential if p["ticker"] == ticker)
+            print(f"    PM_ORB signal: {pm_entry['time']} {pm_entry['rating']} {pm_entry['vol_ratio']}x")
+            potential.append({
+                "_id":         f"{ticker}#PM",
+                "_parent":     None,
+                "ticker":      ticker,
+                "trade_num":   prior_cnt + 1,
+                "signal":      "PM_ORB",
+                "time":        pm_entry["time"],
+                "entry":       pm_entry["price"],
+                "exit":        pm_exit["price"],
+                "exit_time":   pm_exit["time"],
+                "exit_reason": pm_exit["reason"],
+                "allocated":   pm_alloc,
+                "rating":      pm_entry["rating"],
+                "vol_ratio":   pm_entry["vol_ratio"],
+                "gap_pct":     0.0,
+                "atr_modifier": modifier,
+                "pnl":         pm_pnl,
+                "pnl_pct":     pm_pnl_pct,
+            })
+
     # --- Phase 2: Chronological simulation with concurrent capital tracking ---
     potential.sort(key=lambda t: t["time"])
-    active        = []   # positions still holding capital: {"exit_time", "allocated"}
+    active        = []   # {exit_time, allocated, ticker, entry_idx}
     executed_ids  = set()
     day_limit_hit = False
 
@@ -559,21 +776,58 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
             skipped.append(f"{trade['ticker']}#{trade['trade_num']}(insufficient cash)")
             continue
         if available < trade["allocated"]:
-            skipped.append(f"{trade['ticker']}#{trade['trade_num']}(budget)")
-            continue
-        active.append({"exit_time": trade["exit_time"], "allocated": trade["allocated"]})
-        executed_ids.add(trade["_id"])
+            # Reallocation: if this is a TAKE signal after the morning window,
+            # sell the worst open position(s) to free up capital
+            if trade["rating"] == "TAKE" and trade["time"] >= REALLOC_MIN_TIME and active:
+                candidates = []
+                for a in active:
+                    curr     = _price_at(a["ticker"], trade["time"], ticker_cache)
+                    orig     = entries[a["entry_idx"]]["entry"]
+                    curr_pct = (curr - orig) / orig * 100
+                    if curr_pct < REALLOC_MAX_PNL_PCT:
+                        candidates.append((curr_pct, a, curr))
+                candidates.sort()  # worst PnL% first
+
+                for _, worst_a, worst_price in candidates:
+                    t = entries[worst_a["entry_idx"]]
+                    t["exit"]        = worst_price
+                    t["exit_time"]   = trade["time"]
+                    t["exit_reason"] = "REALLOC"
+                    t["pnl"]         = round((worst_price - t["entry"]) / t["entry"] * t["allocated"], 2)
+                    t["pnl_pct"]     = round((worst_price - t["entry"]) / t["entry"] * 100, 2)
+                    worst_a["exit_time"] = trade["time"]
+                    active    = [a for a in active if a["exit_time"] > trade["time"]]
+                    deployed  = sum(a["allocated"] for a in active)
+                    available = starting_balance - deployed
+                    print(f"    REALLOC: sold {t['ticker']} @ ${worst_price:.2f} "
+                          f"({t['pnl_pct']:+.2f}%) to fund {trade['ticker']}")
+                    if available >= trade["allocated"]:
+                        break
+
+            if available < trade["allocated"]:
+                skipped.append(f"{trade['ticker']}#{trade['trade_num']}(budget)")
+                continue
         entries.append({k: v for k, v in trade.items() if not k.startswith("_")})
+        active.append({"exit_time": trade["exit_time"], "allocated": trade["allocated"],
+                       "ticker": trade["ticker"], "entry_idx": len(entries) - 1})
+        executed_ids.add(trade["_id"])
         if round(sum(e["pnl"] for e in entries), 2) <= DAY_LOSS_LIMIT:
             day_limit_hit = True
 
-    total_pnl  = round(sum(e["pnl"] for e in entries), 2)
-    reentries  = [e for e in entries if e["trade_num"] == 2]
+    total_pnl       = round(sum(e["pnl"] for e in entries), 2)
+    reentries       = [e for e in entries if e.get("signal") == "REENTRY"]
+    afternoon_trades = [e for e in entries if e.get("signal") == "AFTERNOON"]
 
     print(f"\n=== EX2 Results: {trade_date} ===\n")
     for e in entries:
-        tag = " [RE]" if e["trade_num"] == 2 else "     "
-        s   = "+" if e["pnl"] >= 0 else ""
+        sig = e.get("signal", "")
+        if sig == "REENTRY":
+            tag = " [RE]"
+        elif sig == "AFTERNOON":
+            tag = " [AF]"
+        else:
+            tag = "     "
+        s = "+" if e["pnl"] >= 0 else ""
         print(f"  {e['ticker']:5s}{tag} | {e['time']} → {e['exit_time']} ({e['exit_reason']:<16}) | "
               f"{e['rating']} {e['vol_ratio']}x | ${e['entry']:.2f} → ${e['exit']:.2f} | "
               f"{s}${e['pnl']:.2f}")
@@ -581,11 +835,14 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
     if skipped:
         print(f"\n  Skipped: {', '.join(skipped)}")
 
-    print(f"\n  Trades: {len(entries)} | Re-entries: {len(reentries)} | P&L: ${total_pnl:+.2f} | "
-          f"Portfolio EOD: ${round(starting_balance + total_pnl, 2):.2f}")
+    print(f"\n  Trades: {len(entries)} | Re-entries: {len(reentries)} | Afternoon: {len(afternoon_trades)} | "
+          f"P&L: ${total_pnl:+.2f} | Portfolio EOD: ${round(starting_balance + total_pnl, 2):.2f}")
     if reentries:
         re_pnl_total = sum(e["pnl"] for e in reentries)
         print(f"  Re-entry contribution: ${re_pnl_total:+.2f}")
+    if afternoon_trades:
+        af_pnl_total = sum(e["pnl"] for e in afternoon_trades)
+        print(f"  Afternoon contribution: ${af_pnl_total:+.2f}")
 
     exercise = {
         "title":            "Exercise 2 - Re-entry",
@@ -594,6 +851,7 @@ def run_ex2(trade_date=None, backfill=False, result_file=None):
         "trades":           entries,
         "total_trades":     len(entries),
         "reentry_count":    len(reentries),
+        "afternoon_count":  len(afternoon_trades),
         "total_pnl":        total_pnl,
         "total_pnl_pct":    round(total_pnl / starting_balance * 100, 2),
         "portfolio_eod":    round(starting_balance + total_pnl, 2),
