@@ -221,14 +221,18 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None):
 
 def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None):
     """Post-lunch consolidation breakout: first close above 12:00–12:44 range high."""
-    avg_vol  = sum(volumes) / len(volumes) if volumes else 1
     day_open = closes[0]
 
-    pm_range = [closes[i] for i in range(len(times))
-                if PM_ORB_RANGE_START <= times[i] <= PM_ORB_RANGE_END]
-    if len(pm_range) < PM_ORB_MIN_BARS:
+    pm_range_vols   = [volumes[i] for i in range(len(times))
+                       if PM_ORB_RANGE_START <= times[i] <= PM_ORB_RANGE_END]
+    pm_range_closes = [closes[i] for i in range(len(times))
+                       if PM_ORB_RANGE_START <= times[i] <= PM_ORB_RANGE_END]
+    if len(pm_range_closes) < PM_ORB_MIN_BARS:
         return None
-    pm_high = max(pm_range)
+    # Use PM consolidation window avg volume — full-day avg is biased by heavy morning
+    # volume and would SKIP all lunchtime bars even when volume is elevated for the time.
+    pm_avg_vol = sum(pm_range_vols) / len(pm_range_vols) if pm_range_vols else 1
+    pm_high    = max(pm_range_closes)
 
     for i in range(len(times)):
         if times[i] <= PM_ORB_RANGE_END:
@@ -236,7 +240,7 @@ def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None):
         if times[i] > PM_ORB_CUTOFF:
             break
         if closes[i] > pm_high:
-            rating, vr = score_signal(closes[:i+1], volumes[i], avg_vol)
+            rating, vr = score_signal(closes[:i+1], volumes[i], pm_avg_vol)
             if rating == "SKIP":
                 continue
             if spy_by_time and day_open:
@@ -247,7 +251,7 @@ def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None):
                     spy_now  = spy_by_time[spy_times[-1]]
                     spy_chg  = (spy_now - spy_open) / spy_open if spy_open else 0
                     if ticker_chg <= spy_chg:
-                        return None
+                        continue  # was return None — keep scanning after first RS fail
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "PM_ORB"}
             return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker))
