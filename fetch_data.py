@@ -392,6 +392,36 @@ PER_DAY_GROWTH = {
             "full capital deployment on trending days where take-profits arrive before 11:00."
         ),
     ],
+    "2026-05-05": [
+        (
+            "ARM GAP_GO fired on the 09:31 bar — first-bar gap entries buy the peak of the opening spike with no consolidation",
+            "ARM gapped 4.18% and triggered GAP_GO on the very first 1-minute close (09:31) with 3.0x volume and a $1,294.43 allocation. "
+            "It stopped out by 09:37 (-$26.03 EX1, -$26.22 EX2), losing 2.01% in just 6 bars — the session's single largest loss. "
+            "A 09:31 GAP_GO fires at the top of the opening spike before any post-gap consolidation can form; there is no confirmation of "
+            "sustained buying beyond the initial gap rush, making it the highest-reversal-risk entry time. "
+            "Test: disallow GAP_GO entries on the 09:31 bar — require the signal bar to be 09:32 or later. "
+            "This preserves multi-bar confirmation while eliminating the riskiest first-bar gap chases."
+        ),
+        (
+            "UPST re-entry on flat-gap day compounded loss to -$18.53 in EX2 with no new directional information",
+            "UPST first stopped out at 10:40 (STOP_LOSS, -$11.74 EX2) on a -0.09% gap day, then re-entered at 11:09 with nearly "
+            "identical conditions (vol=2.0x vs 2.1x, same flat gap) and exited EARLY_WEAK at 11:54 (-$6.79), bringing total UPST damage "
+            "in EX2 to -$18.53 versus -$5.83 in EX1. The re-entry added no new directional signal — the original stop-out had already "
+            "revealed a lack of momentum on a flat-gap day, and the conditions were unchanged. "
+            "Test: block re-entries when gap_pct is between -0.5% and +0.5%. On flat-gap days the initial stop-out reflects the absence "
+            "of pre-market institutional commitment; a second entry on the same directionless stock amplifies exposure without edge."
+        ),
+        (
+            "Three flat-gap ORBs (NVDA +0.13%, SMCI +0.07%, UPST -0.09%) drained -$13.18 from EX1 with no follow-through",
+            "NVDA (gap +0.13%, 09:45, EARLY_WEAK, -$4.92), SMCI (gap +0.07%, 11:11, EARLY_WEAK, -$2.43), and UPST (gap -0.09%, 10:23, "
+            "STOP_LOSS, -$5.83) all failed to sustain any upward momentum — together accounting for -$13.18 of EX1's -$33.59 session loss. "
+            "NVDA drew a full $638.70 TAKE allocation (ATR 1.5x, max position) despite opening within 0.13% of prior close, yet stalled "
+            "for 45 minutes with no progress. Stocks opening within ±0.5% of prior close carry no pre-market directional bias; ORB "
+            "breakouts on them are effectively directionless and rely on intraday momentum that often never arrives. "
+            "Test: apply a -1 score penalty to any ORB where gap_pct is between -0.5% and +0.5%, downgrading marginal TAKEs to MAYBE "
+            "and weak MAYBEs to SKIP, reducing capital deployed into low-conviction flat-open breakouts."
+        ),
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -410,6 +440,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-04-29": [None, 43, None],    # note 2 → 2-bar trail lock → shipped
     "2026-04-30": [None, None, None],
     "2026-05-01": [None, None, None],
+    "2026-05-05": [None, None, None],  # note 1 → ARM first-bar GAP_GO block | note 2 → flat-gap re-entry block | note 3 → flat-gap ORB score penalty
 }
 
 def load_growth_state():
