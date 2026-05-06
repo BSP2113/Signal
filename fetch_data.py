@@ -522,6 +522,38 @@ PER_DAY_GROWTH = {
             "and weak MAYBEs to SKIP, reducing capital deployed into low-conviction flat-open breakouts."
         ),
     ],
+    "2026-05-06": [
+        (
+            "SMCI GAP_GO STOP_LOSS (-$62.27) despite 15.27% gap highlights that extreme-gap entries need higher vol threshold for TAKE",
+            "SMCI gapped 15.27%, was rated TAKE at 7.7x vol_ratio, received a $1,952 EX1 allocation, and reversed immediately for "
+            "-$62.27 (STOP_LOSS 09:33, -3.19%) — the session's largest loss. AMD gapped 15.1% with 10.6x vol and hit TAKE_PROFIT by "
+            "09:34 (+$62.54, +3.03%), showing the outcome split is almost entirely determined by whether institutional buying is still "
+            "dominant at the open. At extreme gaps (>12%), the stock is already deeply extended; 1.5x vol is not sufficient conviction — "
+            "only trades with truly exceptional volume confirm the move is continuing rather than exhausting. "
+            "Test: for GAP_GO entries where gap_pct > 12%, raise the TAKE vol_ratio threshold from 1.5x to 10.0x. SMCI at 7.7x would "
+            "have been capped to MAYBE (half the allocation), while AMD at 10.6x would retain its TAKE rating."
+        ),
+        (
+            "PLTR ORB on -2.47% gap with 1.6x vol spent 90 min stalling then exited NO_PROGRESS for -$8.15 — weak counter-trend setup",
+            "PLTR entered ORB at 10:07 (gap -2.47%, vol_ratio 1.6x, MAYBE rating) and spent the next 90 minutes making no upside "
+            "progress before exiting NO_PROGRESS at 11:37 for -$8.15 (-1.10%) in EX2. A stock opening 2.47% below prior close has a "
+            "strong downward bias; a breakout above the opening range requires outsized buying pressure to overcome that bias, which "
+            "1.6x vol does not provide. TSLA also gapped negative (-1.11%) but had 2.0x vol and ended +1.9%, suggesting the dividing "
+            "line is around 2.0x. "
+            "Test: for ORB signals where gap_pct < -1.5% and vol_ratio < 2.0x, auto-skip or apply a -1 score penalty, preventing "
+            "marginal counter-trend entries that lack sufficient buying conviction to overcome the gap-down bias."
+        ),
+        (
+            "ARM PM_ORB entry at 13:21 left only 39 min before 14:00 close, producing a TIME_CLOSE loss of -$2.98 with no realistic upside",
+            "ARM triggered a PM_ORB signal at 13:21 with a $457.18 EX2 allocation, but with just 39 minutes until the 14:00 hard close "
+            "it was mathematically nearly impossible to reach the +3% TAKE_PROFIT target. The trade closed at TIME_CLOSE for -$2.98 "
+            "(-0.65%). Other PM_ORB entries today that fired earlier (KOPN 12:46, DELL 12:47, TSLA 12:57, IONQ 13:04) had 56–74 minutes "
+            "of runway and all produced positive or breakeven results; ARM alone entered too late to develop meaningful directional "
+            "momentum before the cutoff forced the exit. "
+            "Test: cap PM_ORB entries at 13:15 (45 minutes before close). Any PM_ORB signal firing after 13:15 is automatically SKIP, "
+            "ensuring remaining entries have at least 45 minutes of runway to develop before the 14:00 hard close."
+        ),
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -545,6 +577,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-01": [46, None, None],    # note 1 → GAP_GO T+30 no-progress → not pursuing
     "2026-05-04": [52, 53, 54],        # note 1 → neg-gap 2x filter → not pursuing | note 2 → neg-gap score penalty → not pursuing | note 3 → burst entry cap → not pursuing
     "2026-05-05": [None, None, None],  # note 1 → ARM first-bar GAP_GO block | note 2 → flat-gap re-entry block | note 3 → flat-gap ORB score penalty
+    "2026-05-06": [None, None, None],  # note 1 → extreme-gap TAKE threshold | note 2 → neg-gap low-vol ORB skip | note 3 → PM_ORB late-entry cutoff
 }
 
 def load_growth_state():
