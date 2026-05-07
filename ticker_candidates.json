@@ -1,0 +1,98 @@
+[
+  {
+    "ticker": "MU",
+    "status": "tested",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": 66,
+    "total_pnl": 104.47,
+    "trades": 9,
+    "avg_win": 25.36,
+    "avg_loss": -15.91,
+    "notes": "Strong on trend days (May 4+5 GAP_GO). Large avg win but avg loss also significant. Worth pool comparison test."
+  },
+  {
+    "ticker": "CRWV",
+    "status": "tested",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": 66,
+    "total_pnl": 103.37,
+    "trades": 15,
+    "avg_win": 13.58,
+    "avg_loss": -6.49,
+    "notes": "Tight losses (-$6.49 avg) with solid win rate. Most active candidate (15 trades). Worth pool comparison test."
+  },
+  {
+    "ticker": "UEC",
+    "status": "tested",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": 66,
+    "total_pnl": 37.88,
+    "trades": 12,
+    "avg_win": 10.53,
+    "avg_loss": -11.58,
+    "notes": "66% WR but avg loss exceeds avg win — winning on trade count, not dollars. Borderline expectancy."
+  },
+  {
+    "ticker": "SNAP",
+    "status": "rejected",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": 46,
+    "total_pnl": -37.12,
+    "trades": 13,
+    "avg_win": 6.61,
+    "avg_loss": -10.97,
+    "notes": "Below threshold. Avg loss nearly double avg win. Not viable."
+  },
+  {
+    "ticker": "VRT",
+    "status": "rejected",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": 30,
+    "total_pnl": -58.15,
+    "trades": 13,
+    "avg_win": 10.08,
+    "avg_loss": -10.94,
+    "notes": "Worst in batch at 30% WR. Fires signals but loses consistently."
+  },
+  {
+    "ticker": "PALAF",
+    "status": "rejected",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": null,
+    "total_pnl": null,
+    "trades": 0,
+    "avg_win": null,
+    "avg_loss": null,
+    "notes": "OTC stock — no Alpaca IEX data available."
+  },
+  {
+    "ticker": "AZURF",
+    "status": "rejected",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": null,
+    "total_pnl": null,
+    "trades": 0,
+    "avg_win": null,
+    "avg_loss": null,
+    "notes": "OTC stock — no Alpaca IEX data available."
+  },
+  {
+    "ticker": "JNUG",
+    "status": "rejected",
+    "test_date": "2026-05-07",
+    "test_days": 18,
+    "win_rate": null,
+    "total_pnl": null,
+    "trades": 0,
+    "avg_win": null,
+    "avg_loss": null,
+    "notes": "3x leveraged ETF — large gaps but no qualifying signals ever fired in 18 days."
+  }
+]

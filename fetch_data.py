@@ -1416,6 +1416,76 @@ def build_dashboard(assets):
     else:
         grad_section = '<div id="grad-panel" style="display:none"><p style="color:#555;padding:20px">No exercise data yet.</p></div>'
 
+    # --- Ticker Pool panel ---
+    pool_path = os.path.join(os.path.dirname(__file__), "ticker_candidates.json")
+    pool_candidates = json.load(open(pool_path)) if os.path.exists(pool_path) else []
+
+    def _pool_card(c):
+        tk     = c["ticker"]
+        wr     = c.get("win_rate")
+        pnl    = c.get("total_pnl")
+        trades = c.get("trades", 0)
+        aw     = c.get("avg_win")
+        al     = c.get("avg_loss")
+        note   = c.get("notes", "")
+        tdate  = c.get("test_date", "")
+        tdays  = c.get("test_days", "")
+        status = c.get("status", "")
+
+        if pnl is not None:
+            pnl_col  = "#4caf50" if pnl >= 0 else "#ef5350"
+            pnl_str  = f'<span style="color:{pnl_col};font-weight:600">${pnl:+.2f}</span>'
+            stat_str = (f'<span style="color:#aaa">{trades}T &nbsp;·&nbsp; {wr}% WR &nbsp;·&nbsp; </span>'
+                        f'{pnl_str}'
+                        f'<span style="color:#aaa"> &nbsp;·&nbsp; avg W ${aw:+.2f} / avg L ${al:+.2f}</span>')
+        else:
+            stat_str = '<span style="color:#666;font-style:italic">no data</span>'
+
+        meta = f'<span style="color:#555;font-size:0.8em">{tdate} &nbsp;·&nbsp; {tdays}d test</span>' if tdate else ''
+        badge_color = {"tested": "#4f8ef7", "watching": "#888", "added": "#4caf50", "rejected": "#555"}.get(status, "#888")
+
+        return (f'<div style="background:#1a1a1a;border-radius:6px;padding:12px 16px;margin-bottom:8px;'
+                f'border-left:3px solid {badge_color}">'
+                f'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+                f'<span style="font-weight:700;font-size:1.05em">{tk}</span>'
+                f'{meta}</div>'
+                f'<div style="margin-bottom:6px">{stat_str}</div>'
+                f'<div style="color:#888;font-size:0.85em">{note}</div>'
+                f'</div>')
+
+    pool_by_status = {"watching": [], "tested": [], "added": [], "rejected": []}
+    for c in pool_candidates:
+        s = c.get("status", "watching")
+        pool_by_status.setdefault(s, []).append(c)
+
+    def _pool_sub(items, empty_msg):
+        if not items:
+            return f'<p style="color:#555;padding:8px 0">{empty_msg}</p>'
+        return "".join(_pool_card(c) for c in items)
+
+    pool_section = f"""
+    <div id="pool-panel" style="display:none">
+        <div class="section-header">Ticker Pool</div>
+        <div class="imp-subtabs">
+            <button class="imp-subtab imp-sub-active" id="poolsub-tested"   onclick="showPoolSub('tested')">Tested</button>
+            <button class="imp-subtab"                id="poolsub-watching" onclick="showPoolSub('watching')">Watching</button>
+            <button class="imp-subtab"                id="poolsub-added"    onclick="showPoolSub('added')">Added</button>
+            <button class="imp-subtab"                id="poolsub-rejected" onclick="showPoolSub('rejected')">Rejected</button>
+        </div>
+        <div id="pool-sub-tested">
+            {_pool_sub(pool_by_status['tested'],   'No tested candidates yet.')}
+        </div>
+        <div id="pool-sub-watching" style="display:none">
+            {_pool_sub(pool_by_status['watching'], 'No candidates on the watchlist.')}
+        </div>
+        <div id="pool-sub-added" style="display:none">
+            {_pool_sub(pool_by_status['added'],    'No candidates promoted to the pool yet.')}
+        </div>
+        <div id="pool-sub-rejected" style="display:none">
+            {_pool_sub(pool_by_status['rejected'], 'No rejected candidates yet.')}
+        </div>
+    </div>"""
+
     # --- Improvements panel ---
     # Items removed from GROWTH_POOL but still shown on the board (keyed by archived index)
     ARCHIVED_ITEMS = {
@@ -3056,6 +3126,7 @@ def build_dashboard(assets):
             <button class="tab" id="tab-pnl" onclick="showPnL()">P&amp;L</button>
             <button class="tab" id="tab-grad" onclick="showGrad()">Graduation</button>
             <button class="tab" id="tab-imp" onclick="showImprovements()">Improvements</button>
+            <button class="tab" id="tab-pool" onclick="showTickerPool()">Ticker Pool</button>
         </div>
     </div>
     {home_section}
@@ -3063,6 +3134,7 @@ def build_dashboard(assets):
     {pnl_section}
     {grad_section}
     {improvements_section}
+    {pool_section}
     <p class="meta">Generated: {generated} — auto-refreshes every 60 seconds (keep run.py running)</p>
     <script>
         var charts    = {{}};
@@ -3214,6 +3286,7 @@ def build_dashboard(assets):
             var pnl  = document.getElementById('pnl-panel');  if (pnl)  pnl.style.display  = 'none';
             var grad = document.getElementById('grad-panel'); if (grad) grad.style.display = 'none';
             var imp  = document.getElementById('imp-panel');  if (imp)  imp.style.display  = 'none';
+            var pool = document.getElementById('pool-panel'); if (pool) pool.style.display = 'none';
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('btn-home').classList.remove('active');
         }}
@@ -3227,6 +3300,26 @@ def build_dashboard(assets):
             document.getElementById('day-label').style.display    = 'none';
             document.getElementById('interval-label').style.display = 'none';
             localStorage.setItem('activePanel', 'imp');
+        }}
+
+        function showTickerPool() {{
+            hideAll();
+            var pool = document.getElementById('pool-panel');
+            if (pool) pool.style.display = 'block';
+            document.getElementById('tab-pool').classList.add('active');
+            document.getElementById('date-select').style.display   = 'none';
+            document.getElementById('day-label').style.display     = 'none';
+            document.getElementById('interval-label').style.display = 'none';
+            localStorage.setItem('activePanel', 'pool');
+        }}
+
+        function showPoolSub(name) {{
+            ['tested','watching','added','rejected'].forEach(function(s) {{
+                var panel = document.getElementById('pool-sub-' + s);
+                var btn   = document.getElementById('poolsub-' + s);
+                if (panel) panel.style.display = (s === name) ? 'block' : 'none';
+                if (btn)   btn.classList.toggle('imp-sub-active', s === name);
+            }});
         }}
 
         function showImpSub(name) {{
@@ -3365,7 +3458,8 @@ def build_dashboard(assets):
             var saved = localStorage.getItem('activePanel');
             if (!saved || saved === 'home') {{ showHome(); }}
             else if (saved === 'grad') {{ showGrad(); }}
-            else if (saved === 'imp') {{ showImprovements(); }}
+            else if (saved === 'imp')  {{ showImprovements(); }}
+            else if (saved === 'pool') {{ showTickerPool(); }}
             else if (saved === 'pnl') {{
                 showPnL();
                 var pnlScroll = localStorage.getItem('pnlScroll');
