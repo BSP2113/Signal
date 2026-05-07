@@ -1,7 +1,7 @@
 [
   {
     "ticker": "MU",
-    "status": "tested",
+    "status": "watching",
     "test_date": "2026-05-07",
     "test_days": 18,
     "win_rate": 66,
@@ -13,7 +13,7 @@
   },
   {
     "ticker": "CRWV",
-    "status": "tested",
+    "status": "watching",
     "test_date": "2026-05-07",
     "test_days": 18,
     "win_rate": 66,
