@@ -71,8 +71,8 @@ PM_ORB_TAKE_FLOOR   = 2.0      # minimum vol ratio vs PM window avg to earn TAKE
 SPY_BULL       =  0.004   # premarket gap > +0.4% = bullish (matches market_check.py)
 SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
-ALLOC_PCT_BULL = {"TAKE": 0.35, "MAYBE": 0.20}
-ALLOC_PCT_NEUT = {"TAKE": 0.30, "MAYBE": 0.15}
+ALLOC_PCT_BULL = {"TAKE": 0.50, "MAYBE": 0.20}
+ALLOC_PCT_NEUT = {"TAKE": 0.45, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ET          = "America/New_York"
@@ -183,7 +183,7 @@ def score_signal(closes_so_far, vol, avg_volume):
 
 
 def find_exit(closes, times, entry_price, entry_bar, ticker=None,
-              highs=None, lows=None, large_gap=False):
+              highs=None, lows=None, large_gap=False, rating=None):
     peak         = entry_price
     consec_above = 0       # consecutive closes >= entry+1% (trail arm requires 2)
     trail_armed  = False
@@ -219,7 +219,9 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None,
 
         if times[i] >= ENTRY_CLOSE:
             return {"bar": i, "time": times[i], "price": price, "reason": "TIME_CLOSE"}
-        if price >= entry_price * (1 + TAKE_PROFIT):
+        # TAKE-rated trades skip the +3% hard cap and let the trail handle exit;
+        # MAYBE-rated keep the cap to protect lower-conviction wins.
+        if rating != "TAKE" and price >= entry_price * (1 + TAKE_PROFIT):
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
         if trail_armed and price <= peak * (1 - TRAIL_STOP):
             return {"bar": i, "time": times[i], "price": price, "reason": "TRAILING_STOP"}
@@ -276,7 +278,7 @@ def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None):
                 rating = "MAYBE"
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "PM_ORB"}
-            return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker))
+            return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker, rating=rating))
 
     return None
 
@@ -325,7 +327,7 @@ def find_all_trades(closes, highs, lows, volumes, times, skip_orb=False, spy_by_
                          "rating": rating, "vol_ratio": round(vr, 1), "signal": "GAP_GO"}
                 large_gap = gap_pct >= LARGE_GAP_THRESH
                 return [(entry, find_exit(closes, times, entry["price"], i, ticker=ticker,
-                                         highs=highs, lows=lows, large_gap=large_gap))]
+                                         highs=highs, lows=lows, large_gap=large_gap, rating=rating))]
         return []
 
     if skip_orb:
@@ -359,7 +361,7 @@ def find_all_trades(closes, highs, lows, volumes, times, skip_orb=False, spy_by_
                             return []   # not outperforming SPY — skip
                 entry = {"bar": i, "time": times[i], "price": closes[i],
                          "rating": rating, "vol_ratio": round(vr, 1), "signal": "ORB"}
-                exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker)
+                exit_ = find_exit(closes, times, entry["price"], entry["bar"], ticker=ticker, rating=rating)
                 return [(entry, exit_)]
 
     return []

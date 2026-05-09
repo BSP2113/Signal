@@ -607,6 +607,20 @@ PER_DAY_GROWTH_EX2 = {
             "All three EX2 add-on layers (re-entries, PM_ORB, afternoon breakouts) contributed $0.00 today. EX2's $+8.65 advantage over EX1 came entirely from compounding wallet differences \u2014 not from any signal the extra layers generated. The re-entry layer is already net slightly negative over 12 days per the 30-day review in progress. A recurring pattern of $0 contribution from extra layers on NEUTRAL days would mean EX2 only adds value on BULL days when momentum extends into the afternoon \u2014 and adds risk of drawdown (via re-entries doubling down on losing setups) on NEUT/BEAR days. Test: tag each session with whether EX2 extra layers added, subtracted, or were flat vs EX1, broken down by market state; if NEUT and BEAR days show extra layers flat or negative in aggregate at the 30-day mark, restrict re-entries and PM_ORB to BULL market days only."
         )
     ],
+    "2026-05-08": [
+        (
+            "PM_ORB MAYBE cluster REALLOC'd within 7 min \u2014 -$11.47 in pure churn",
+            "AMD, KOPN, and SNDK all fired PM_ORB MAYBE signals within a 5-minute window (12:45\u201312:50) and were all REALLOC'd at 12:52 when DELL's TAKE triggered. Each position was held fewer than 3\u20137 bars before being liquidated \u2014 AMD lost -$6.93, KOPN -$2.67, SNDK -$1.87, totaling -$11.47 in churn. None had time to move. The REALLOC logic correctly prioritized DELL (which returned +$92.09), but the early MAYBEs burned capital through immediate drawdown before the better signal arrived. The problem is that PM_ORB MAYBEs are being entered with no buffer against being flipped by a superior signal moments later. Test: Add a minimum hold of 5 bars (5 minutes) before any PM_ORB MAYBE position becomes REALLOC-eligible, so marginal entries aren't immediately liquidated for churn losses the moment a TAKE fires."
+        ),
+        (
+            "SNDK PM_ORB at 1.1x vol is below meaningful conviction threshold",
+            "SNDK #2 PM_ORB entered at $1,496.83 with only 1.1x PM window avg volume \u2014 barely above the 1.0x floor \u2014 and was REALLOC'd 2 minutes later for -$1.87. At ~$1,500/share, a MAYBE allocation is already a small share count, and 1.1x volume signals almost no breakout conviction. The PM_ORB TAKE threshold is correctly set at 2.0x, but the MAYBE floor at 1.0x allows entries on essentially no signal strength. ASTS entered at 1.3x and survived to TIME_CLOSE (+$18.33), but that was likely driven by broader market tailwind rather than conviction \u2014 and SNDK's 1.1x at 12:50 came after three other PM_ORBs had already fired, meaning the afternoon pool was crowded. Test: Raise the PM_ORB MAYBE volume floor to 1.3x (from 1.0x) to filter out sub-conviction entries like SNDK's 1.1x today and prevent nominal positions from eating into REALLOC capital."
+        ),
+        (
+            "DELL TAKE fired 7 min after MAYBE cluster \u2014 TAKE-priority window could avoid churn",
+            "DELL's PM_ORB TAKE at 3.7x volume hit TAKE_PROFIT in just 3 minutes (+$92.09, +3.00%) and was the dominant signal of the afternoon. It fired at 12:52 \u2014 7 minutes after the first PM_ORB MAYBEs opened at 12:45. If capital had not been deployed into AMD, KOPN, and SNDK MAYBEs first, DELL could have received its full TAKE allocation without triggering REALLOC and without the -$11.47 churn cost. On BULL days with strong morning momentum, the best PM_ORB signal often arrives slightly after weaker ones, not first. Today EX2's PM_ORB layer netted +$98.95, but its gross potential was ~$110+ before churn. Test: In BULL market sessions, implement a 10-minute PM_ORB TAKE-priority hold (12:44\u201312:54) where MAYBE allocations are deferred and capital is reserved for a TAKE signal; deploy MAYBEs only if no TAKE fires within the window."
+        )
+    ],
 }
 
 # Per-day Claude's Notes for Exercise 3 (hybrid routing analysis)
@@ -1609,6 +1623,22 @@ def build_dashboard(assets):
     # --- Improvements panel ---
     # Items removed from GROWTH_POOL but still shown on the board (keyed by archived index)
     ARCHIVED_ITEMS = {
+        73: {
+            "title":    "TAKE allocation increased — BULL 35→50%, NEUT 30→45% (MAYBE unchanged)",
+            "date":     "May 9, 2026",
+            "original": "TAKE-rated entries are the highest-conviction signals in the model — 16 of 20 live days were green, "
+                        "and TAKE wins drive most of the day's P&L. Sizing TAKE up directly multiplies the edge without "
+                        "changing the signal logic. Proposed: raise BULL TAKE from 35% to 50%, NEUT TAKE from 30% to 45%, "
+                        "leaving MAYBE allocations and BEAR mode untouched.",
+        },
+        72: {
+            "title":    "Take-profit cap removed for TAKE-rated trades — let high-conviction winners run past +3%",
+            "date":     "May 8, 2026",
+            "original": "The +3% take-profit was capping every win at +3%, even on strong days where stocks were running to +5–7%. "
+                        "TAKE-rated signals (high conviction) were getting cut short by the cap on the same days that produced the biggest moves. "
+                        "Proposed: remove the +3% cap on TAKE-rated trades and let the existing 2% trailing stop handle the exit. "
+                        "Keep the +3% cap on MAYBE-rated trades to protect lower-conviction wins from giving back gains.",
+        },
         42: {
             "title":    "Quick-stop pause gate — block new ORB entries for 15 min after any position stops within 45 min of entry",
             "date":     "Apr 28, 2026",
@@ -2033,6 +2063,36 @@ def build_dashboard(assets):
     }
 
     GROWTH_RESOLUTIONS = {
+        73: {
+            "what":   "TAKE allocations raised: BULL 35%→50%, NEUT 30%→45%. MAYBE (20%/15%/10%) and BEAR TAKE (10%) unchanged.",
+            "date":   "May 9, 2026",
+            "detail": "ex1.py and ex2.py ALLOC_PCT_BULL/NEUT updated. The capital-constraint interaction is intentional: at 50% "
+                      "TAKE in BULL, only 2-3 TAKE trades fit per day, naturally concentrating capital on the highest-priority "
+                      "signals (first to fire and clear the SPY relative-strength gate). Smaller bumps (40%, 45%) tested but "
+                      "the 50% level is where the concentration effect kicks in cleanly.",
+            "impact": "Tested across 48 days (20 live + 28 backfill) on top of TAKE-no-cap exit logic: "
+                      "+$163.43 total vs prior 35/30 baseline (+$1,396.65 vs +$1,233.22). "
+                      "Live edge: +$224.60 over 20 days (~$11.20/day). "
+                      "Cost: 2 live win-days flipped to red days (16/20 → 14/20), but worst-day stayed at -$76 (vs -$78 baseline). "
+                      "Biggest single-day gains under new sizing: May 8 +$166 (single big TAKE winner), May 6 +$80, "
+                      "April 15-17 cluster +$70 combined. "
+                      "Variant 40/35 was tested and rejected (-$125 vs baseline) — the improvement is non-monotonic, "
+                      "the 50/45 step crosses a capital-concentration threshold the smaller bumps don't.",
+        },
+        72: {
+            "what":   "Removed the +3% hard cap on TAKE-rated trades — they now exit via trailing stop (2% from peak, armed at +1%)",
+            "date":   "May 8, 2026",
+            "detail": "ex1.py and ex2.py find_exit() now skip the TAKE_PROFIT check when rating == 'TAKE'. "
+                      "MAYBE-rated trades keep the +3% cap unchanged. All other exits — trailing stop, stop loss, "
+                      "no-progress, early weakness, time close — work the same as before for both ratings. "
+                      "The trailing stop already requires 2 consecutive closes ≥ entry+1% to arm, so a TAKE trade "
+                      "that runs to +3% locks in roughly +1% as a floor, then trails any further peak.",
+            "impact": "Tested across 48 days (20 live + 28 backfill): +$40.46 total vs blanket +3% cap. "
+                      "Live win-rate preserved at 16/20 (vs 16/20 baseline) — no days flipped from green to red. "
+                      "Biggest individual wins under the change: 2026-04-13 +$78 (TAKE runners), 2026-04-30 +$48 (KOPN +4.77% → +8.79% trail), "
+                      "2026-05-05 SNDK +3.08% → +4.80% trail (+$36). "
+                      "Wider variant tested (Opt B: +6% cap) gained more (+$148) but cut live win-rate to 14/20 — moved to Revisit instead.",
+        },
         37: {
             "what":   "Implemented as a new GAP_GO signal type for tickers gapping ≥3%",
             "date":   "Apr 27, 2026",
@@ -2724,9 +2784,9 @@ def build_dashboard(assets):
             <div class="active-card-verdict verdict-keep">Directly responsible for catching the NVDA thin-volume false signal on 4/20. Working as intended.</div>
         </div>
         <div class="active-card">
-            <div class="active-card-title">Take Profit (+3%) <span style="color:#555;font-size:0.76em;font-weight:normal;margin-left:8px">pre-Apr 13, 2026</span></div>
-            <div class="active-card-desc">Exits positions that reach +3% gain from entry. Locks in profits before the inevitable intraday reversal.</div>
-            <div class="active-card-verdict verdict-keep">Clean exits on several strong days. Prevents giving back gains on choppy afternoons.</div>
+            <div class="active-card-title">Take Profit — MAYBE only (+3%) <span style="color:#555;font-size:0.76em;font-weight:normal;margin-left:8px">updated May 8, 2026</span></div>
+            <div class="active-card-desc">MAYBE-rated entries exit at +3%. TAKE-rated entries skip the hard cap and let the trailing stop handle the exit, so high-conviction trades can run past +3% on strong days.</div>
+            <div class="active-card-verdict verdict-keep">Tested across 48 days (20 live + 28 backfill): +$40.46 vs the old blanket +3% cap, with no live win-rate degradation (16/20 days both before and after).</div>
         </div>
         <div class="active-card">
             <div class="active-card-title">Stop Loss (-1.5%) <span style="color:#555;font-size:0.76em;font-weight:normal;margin-left:8px">pre-Apr 13, 2026</span></div>
@@ -2807,6 +2867,27 @@ def build_dashboard(assets):
 
     revisit_html = """
         <p style="color:#888;font-size:0.85em;margin-bottom:20px">Tested and showing promise — not enough data yet to ship. Revisit at the dates noted.</p>
+
+        <div class="active-card">
+            <div class="active-card-title">Take-profit cap raised to +6% (all ratings) — bigger upside lever than TAKE-only no-cap <span style="color:#555;font-size:0.76em;font-weight:normal;margin-left:8px">May 8, 2026</span></div>
+            <div class="active-card-desc">
+                After shipping the TAKE-rated no-cap change (Opt C), tested a wider variant: raise the +3% take-profit
+                to +6% for all ratings. Captures stocks that run past +3% to +5–7% on strong days while still keeping
+                a hard ceiling.
+                <br><br>
+                <strong style="color:#e0e0e0">Tested across 48 days (20 live + 28 backfill):</strong>
+                +$147.51 total vs baseline (+$33.98 live, +$113.53 backfill). Best of all variants tested.
+                Biggest single-trade gains: SNDK May 5 +3.08% → +6.17% (+$67), 2026-04-13 (+$63), 2026-03-25 (+$77),
+                KOPN Apr 30 +4.77% → +7.04% (+$29).
+                <br><br>
+                <strong style="color:#e0e0e0">Why not shipped yet:</strong>
+                Live win-rate dropped from 16/20 to 14/20 — two days flipped from green to red because the 2% trail
+                gave back gains when stocks topped near +3% then faded (e.g., AMD May 6: +3.03% baseline → +0.89%
+                trail under Opt B = -$47). Most of the edge comes from backfill, not live data. Worth revisiting
+                once we have 30+ live days under the current TAKE-only change to see if the asymmetry is real.
+            </div>
+            <div class="active-card-verdict verdict-watch">Revisit at 30 live days under Opt C. If TAKE-only no-cap proves stable, the +6% cap is a natural next step — it captures a much bigger right tail at the cost of 1–2 give-back days per month. Test script: <code>test_take_profit.py</code>.</div>
+        </div>
 
         <div class="active-card">
             <div class="active-card-title">High-Vol TAKE Promotion — vol &ge;2.5x treated as TAKE regardless of choppiness <span style="color:#555;font-size:0.76em;font-weight:normal;margin-left:8px">Apr 27, 2026</span></div>

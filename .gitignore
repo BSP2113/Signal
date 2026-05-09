@@ -2,3 +2,12 @@ dashboard.html
 venv/
 tmp/
 *.tmp*
+
+# Secrets — NEVER commit
+.env
+
+# Local caches and runtime artifacts
+__pycache__/
+*.pyc
+data_cache/
+backups/

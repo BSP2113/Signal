@@ -83,8 +83,8 @@ PM_ORB_RANGE_END    = "12:44"  # afternoon consolidation range end
 PM_ORB_CUTOFF       = "13:30"  # latest allowed PM_ORB entry
 PM_ORB_MIN_BARS     = 10       # minimum bars in range to form valid level
 PM_ORB_TAKE_FLOOR   = 2.0      # minimum vol ratio vs PM window avg to earn TAKE; 1.5x earns MAYBE
-ALLOC_PCT_BULL = {"TAKE": 0.35, "MAYBE": 0.20}
-ALLOC_PCT_NEUT = {"TAKE": 0.30, "MAYBE": 0.15}
+ALLOC_PCT_BULL = {"TAKE": 0.50, "MAYBE": 0.20}
+ALLOC_PCT_NEUT = {"TAKE": 0.45, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
 
 TAKE_TRAIL_GATE    = "13:00"   # TAKE signals: trail exit blocked before this time
@@ -251,7 +251,9 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None, time_close=Non
 
         if times[i] >= time_close:
             return {"bar": i, "time": times[i], "price": price, "reason": "TIME_CLOSE"}
-        if price >= entry_price * (1 + TAKE_PROFIT):
+        # TAKE-rated trades skip the +3% hard cap and let the trail handle exit;
+        # MAYBE-rated keep the cap to protect lower-conviction wins.
+        if rating != "TAKE" and price >= entry_price * (1 + TAKE_PROFIT):
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
         trail_gated = (rating == "TAKE" and times[i] < TAKE_TRAIL_GATE)
         if trail_armed and not trail_gated and price <= peak * (1 - TRAIL_STOP):
@@ -438,7 +440,7 @@ def find_pm_orb(closes, volumes, times, ticker=None, spy_by_time=None, pm_ref="m
                 rating = "MAYBE"
             entry = {"bar": i, "time": times[i], "price": closes[i],
                      "rating": rating, "vol_ratio": round(vr, 1), "signal": "PM_ORB"}
-            return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker))
+            return (entry, find_exit(closes, times, entry["price"], i, ticker=ticker, rating=rating))
 
     return None
 

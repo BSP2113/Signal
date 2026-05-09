@@ -57,8 +57,8 @@ The system must prove ALL of the following before real money is ever considered:
   - **GAP_GO** — for tickers gapping up ≥3% at open, first close above opening bar's high in first 10 minutes (09:30–09:39); replaces ORB for that ticker that day
 - Relative strength gate: ticker must be outperforming SPY at the moment the signal fires
 - Allocations (% of starting balance, then scaled by ATR modifier 0.40x–1.50x):
-  - BULL market: TAKE = 35%, MAYBE = 20%
-  - NEUT market: TAKE = 30%, MAYBE = 15%
+  - BULL market: TAKE = 50%, MAYBE = 20%
+  - NEUT market: TAKE = 45%, MAYBE = 15%
   - BEAR market: TAKE = 10%, MAYBE = 10%
 - Streak cut: after 2+ consecutive losing days, MAYBE allocations × 0.50
 - Drawdown cut: if portfolio >1.5% below rolling 5-day peak, all allocations × 0.50
@@ -205,11 +205,22 @@ Ratings: **TAKE** (score >= 2) | **MAYBE** (score >= 0, volume >= 1.0x) | **SKIP
 - **Alpaca IEX** — used for all 1-minute bar data; requires API key in `.env`
 - **Alpaca trading API** — for future paper/live trading only
 
+## Live Trading Constraints (effective 2026-05-11 — going live with $5K cash account)
+
+**Account type: CASH (not margin).** With $5,000 of equity, a margin account would trigger the Pattern Day Trader rule (>3 day trades in 5 business days = locked unless equity reaches $25K). Every Signal Reader trade is a day trade, so PDT would shut us down within day one. Cash account avoids PDT entirely but settles T+1.
+
+**Trade EX1 ONLY on the live account. Do not enable EX2 features.**
+- EX1's exits (TAKE_PROFIT, STOP_LOSS, TRAIL, NO_PROGRESS, EARLY_WEAK, TIME_CLOSE) are sells of positions bought with settled cash → no violations.
+- EX2's afternoon trades (re-entries, PM_ORB, afternoon breakouts) buy with *unsettled* proceeds from morning exits, then sell those positions same day → "good faith violation." Three violations in 12 months = 90-day cash-settled-only restriction.
+- EX2 keeps running in simulation for research, but live trades follow EX1 logic only.
+
+**Re-enable EX2 live ONLY when:** account equity exceeds $25K AND account type switches to margin. Until then, EX2 is sim-only.
+
 ## Do NOT Build (Until Graduation)
 
-- Automated trade execution
-- Live order placement
-- Any connection to real brokerage accounts
+- ~~Automated trade execution~~ — under active development for live debut 2026-05-11
+- ~~Live order placement~~ — under active development for live debut 2026-05-11
+- ~~Any connection to real brokerage accounts~~ — Alpaca cash account, $5K, going live 2026-05-11
 
 ## Daily Close Checklist (MANDATORY — every trading day)
 
