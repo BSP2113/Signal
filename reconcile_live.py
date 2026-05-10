@@ -15,9 +15,6 @@ If no date arg, uses today.
 import os, sys, json
 from datetime import datetime, timedelta, timezone
 
-from alpaca.trading.requests import GetOrdersRequest
-from alpaca.trading.enums import QueryOrderStatus
-
 import broker
 
 
@@ -27,31 +24,25 @@ TRADES_FILE = os.path.join(BASE_DIR, "trades_live.json")
 
 
 def fetch_broker_orders(date_str: str) -> list[dict]:
-    """All filled orders submitted today, normalized to dicts."""
+    """All filled orders for the given date, normalized to dicts."""
     start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end   = start + timedelta(days=1)
 
-    req = GetOrdersRequest(
-        status = QueryOrderStatus.CLOSED,
-        after  = start,
-        until  = end,
-        limit  = 500,
-    )
     rows = []
-    for o in broker.client().get_orders(req):
-        if not o.filled_avg_price:
-            continue  # skip cancelled / rejected
+    for o in broker.closed_orders(after=start, until=end, limit=500):
+        if not o.get("filled_price"):
+            continue
         rows.append({
-            "order_id":     str(o.id),
-            "ticker":       o.symbol,
-            "side":         str(o.side).split(".")[-1].upper(),
-            "type":         str(o.order_type).split(".")[-1].upper(),
-            "qty":          float(o.filled_qty) if o.filled_qty else 0.0,
-            "price":        float(o.filled_avg_price),
-            "submitted_at": o.submitted_at.isoformat() if o.submitted_at else "",
-            "filled_at":    o.filled_at.isoformat() if o.filled_at else "",
+            "order_id":     o["order_id"],
+            "ticker":       o["ticker"],
+            "side":         o["side"].upper(),
+            "type":         o["type"].upper(),
+            "qty":          float(o["filled_qty"]) if o["filled_qty"] else 0.0,
+            "price":        float(o["filled_price"]),
+            "submitted_at": o.get("submitted_at", ""),
+            "filled_at":    o.get("filled_at", ""),
         })
-    rows.sort(key=lambda r: r["submitted_at"])
+    rows.sort(key=lambda r: r["filled_at"] or r["submitted_at"])
     return rows
 
 

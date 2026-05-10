@@ -203,9 +203,11 @@ Ratings: **TAKE** (score >= 2) | **MAYBE** (score >= 0, volume >= 1.0x) | **SKIP
 ## APIs
 
 - **Alpaca IEX** — used for all 1-minute bar data; requires API key in `.env`
-- **Alpaca trading API** — for future paper/live trading only
+- **IBKR Lite (via ib_insync + IB Gateway)** — used for live order placement. Gateway runs as a systemd service on the Pi via IBC; broker.py talks to it on localhost:4002 (paper) / 4001 (live).
 
-## Live Trading Constraints (effective 2026-05-11 — going live with $5K cash account)
+## Live Trading Constraints (effective week of 2026-05-18 — going live with $5K IBKR Lite cash account)
+
+**Broker: IBKR Lite, individual cash account.** Originally planned for Alpaca; switched 2026-05-09 after discovering Alpaca does not offer cash accounts (all accounts are margin). With $5K margin, PDT would lock us out by day 3. IBKR Lite supports true cash accounts, settles T+1, and is free for US stock trades.
 
 **Account type: CASH (not margin).** With $5,000 of equity, a margin account would trigger the Pattern Day Trader rule (>3 day trades in 5 business days = locked unless equity reaches $25K). Every Signal Reader trade is a day trade, so PDT would shut us down within day one. Cash account avoids PDT entirely but settles T+1.
 
@@ -216,11 +218,18 @@ Ratings: **TAKE** (score >= 2) | **MAYBE** (score >= 0, volume >= 1.0x) | **SKIP
 
 **Re-enable EX2 live ONLY when:** account equity exceeds $25K AND account type switches to margin. Until then, EX2 is sim-only.
 
+**Operational layer (Pi, 24/7):**
+- IB Gateway 10.45 at `/home/ben/Jts/ibgateway/stable`, launched headless via Xvfb
+- IBC 3.23 at `/home/ben/ibkr/ibc` — handles auto-relogin after Gateway's daily restart
+- Java 17.0.16 (Temurin ARM64) at `/opt/java/temurin17` — Gateway requires this exact version
+- systemd service `ibgateway.service` — disabled until paper credentials are entered into `config.ini`
+- broker.py wraps `ib_insync` with the same public interface the Alpaca version had, so live_ex1.py / reconcile / tests / dry_run did not need rewriting
+
 ## Do NOT Build (Until Graduation)
 
-- ~~Automated trade execution~~ — under active development for live debut 2026-05-11
-- ~~Live order placement~~ — under active development for live debut 2026-05-11
-- ~~Any connection to real brokerage accounts~~ — Alpaca cash account, $5K, going live 2026-05-11
+- ~~Automated trade execution~~ — built; awaiting IBKR account approval and credentials
+- ~~Live order placement~~ — built; awaiting IBKR account approval and credentials
+- ~~Any connection to real brokerage accounts~~ — IBKR Lite cash account, $5K, going live week of 2026-05-18
 
 ## Daily Close Checklist (MANDATORY — every trading day)
 

@@ -146,23 +146,17 @@ def test_restart_with_open_positions():
         def open_orders(self, ticker=None): return []
         def cancel_order(self, *a, **kw): return None
         def settled_cash(self): return 0.0
-        def client(self):
-            class FC:
-                def get_orders(self, req):
-                    return [type("O",(),{
-                        "id":"sell","symbol":"AMD","side":"SELL","order_type":"MARKET",
-                        "filled_qty":12.5,"filled_avg_price":204.0,"limit_price":None,
-                        "stop_price":None,"status":"FILLED","submitted_at":None,
-                        "filled_at":None,"qty":12.5,"notional":None,
-                    })()]
-            return FC()
+        def closed_orders(self, **kw):
+            return [{"order_id":"sell","ticker":"AMD","side":"SELL","type":"MKT",
+                     "qty":12.5,"filled_qty":12.5,"filled_price":204.0,
+                     "limit_price":None,"stop_price":None,"status":"filled"}]
     stub = StubBroker()
     real_broker.position             = stub.position
     real_broker.market_sell_position = stub.market_sell_position
     real_broker.open_orders          = stub.open_orders
     real_broker.cancel_order         = stub.cancel_order
     real_broker.settled_cash         = stub.settled_cash
-    real_broker.client               = stub.client
+    real_broker.closed_orders        = stub.closed_orders
     real_broker.IS_PAPER             = True
     sent = stub_alerts()
 
@@ -228,23 +222,18 @@ def test_broker_drift_reconciliation():
         def open_orders(self, ticker=None): return []
         def cancel_order(self, *a, **kw): return None
         def settled_cash(self): return 5000.0
-        def client(self):
-            class FC:
-                def get_orders(self, req):
-                    return [type("O",(),{
-                        "id":"native-stop","symbol":"PLTR","side":"SELL",
-                        "order_type":"STOP","filled_qty":50.0,"filled_avg_price":98.50,
-                        "limit_price":None,"stop_price":98.50,"status":"FILLED",
-                        "submitted_at":None,"filled_at":None,"qty":50.0,"notional":None,
-                    })()]
-            return FC()
+        def closed_orders(self, **kw):
+            # ib_insync uses "STP" for stop orders; reconcile must recognize it
+            return [{"order_id":"native-stop","ticker":"PLTR","side":"SELL","type":"STP",
+                     "qty":50.0,"filled_qty":50.0,"filled_price":98.50,
+                     "limit_price":None,"stop_price":98.50,"status":"filled"}]
     stub = StubBroker()
     real_broker.position             = stub.position
     real_broker.market_sell_position = stub.market_sell_position
     real_broker.open_orders          = stub.open_orders
     real_broker.cancel_order         = stub.cancel_order
     real_broker.settled_cash         = stub.settled_cash
-    real_broker.client               = stub.client
+    real_broker.closed_orders        = stub.closed_orders
     real_broker.IS_PAPER             = True
     stub_alerts()
 

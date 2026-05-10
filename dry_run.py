@@ -187,40 +187,27 @@ class MockBroker:
                 o.status = "CANCELLED"
         return n
 
-    def client(self):
-        # live_ex1 occasionally calls broker.client().get_orders(...) to find
-        # the most-recent SELL fill after a position vanishes. We surface a
-        # tiny shim that returns our orders.
-        outer = self
-        class FakeAlpacaClient:
-            def get_orders(self, req):
-                # Return all closed orders (for ticker if specified), most recent first
-                results = [o for o in outer.orders if o.status in ("FILLED", "CANCELLED")]
-                tickers = getattr(req, "symbols", None)
-                if tickers:
-                    results = [o for o in results if o.ticker in tickers]
-                # Return objects matching the alpaca-py order model fields used by live_ex1
-                rows = []
-                for o in reversed(results):
-                    # Use plain strings for side/order_type/status so live_ex1's
-                    # str(o.side).upper() / "SELL" in side checks work correctly.
-                    rows.append(type("Order", (), {
-                        "id":               o.order_id,
-                        "symbol":           o.ticker,
-                        "side":             o.side,        # "BUY" / "SELL"
-                        "order_type":       o.type,        # "MARKET" / "STOP" / "LIMIT"
-                        "filled_qty":       o.qty,
-                        "filled_avg_price": o.price,
-                        "limit_price":      o.limit_price,
-                        "stop_price":       o.stop_price,
-                        "status":           o.status,
-                        "submitted_at":     None,
-                        "filled_at":        None,
-                        "qty":              o.qty,
-                        "notional":         None,
-                    })())
-                return rows
-        return FakeAlpacaClient()
+    def closed_orders(self, symbols=None, after=None, until=None, limit=500):
+        """Return filled orders in broker._trade_summary shape (dicts).
+        Newest first (live_ex1 iterates in reverse to find most recent SELL)."""
+        results = [o for o in self.orders if o.status == "FILLED"]
+        if symbols:
+            results = [o for o in results if o.ticker in symbols]
+        rows = []
+        for o in results:
+            rows.append({
+                "order_id":     o.order_id,
+                "ticker":       o.ticker,
+                "side":         o.side,             # "BUY" / "SELL"
+                "type":         o.type,             # "MARKET" / "STOP" / "LIMIT"
+                "qty":          o.qty,
+                "filled_qty":   o.qty,
+                "filled_price": o.price,
+                "limit_price":  o.limit_price,
+                "stop_price":   o.stop_price,
+                "status":       "filled",
+            })
+        return rows[:limit]
 
     # ── Broker-side stop/TP simulation ──
     def simulate_native_fills(self, bar_data: dict) -> list[dict]:
@@ -451,7 +438,7 @@ def run_dry_run(date: str, verbose: bool = False):
     real_broker.cancel_all_open_orders = mock.cancel_all_open_orders
     real_broker.settled_cash          = mock.settled_cash
     real_broker.account               = mock.account
-    real_broker.client                = mock.client
+    real_broker.closed_orders         = mock.closed_orders
     real_broker.IS_PAPER              = True
 
     # Silence Telegram (prefix and print to stdout instead)

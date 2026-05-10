@@ -44,14 +44,16 @@ class StubBroker:
 def setup():
     """Common setup: monkey-patch broker + alerts, fresh state."""
     stub = StubBroker()
-    real_broker.market_buy        = stub.market_buy
-    real_broker.position          = stub.position
-    real_broker.attach_stop_loss  = stub.attach_stop_loss
-    real_broker.attach_take_profit= stub.attach_take_profit
-    real_broker.open_orders       = stub.open_orders
-    real_broker.cancel_order      = stub.cancel_order
-    real_broker.settled_cash      = stub.settled_cash
-    real_broker.IS_PAPER          = True
+    real_broker.market_buy             = stub.market_buy
+    real_broker.position               = stub.position
+    real_broker.attach_stop_loss       = stub.attach_stop_loss
+    real_broker.attach_take_profit     = stub.attach_take_profit
+    real_broker.open_orders            = stub.open_orders
+    real_broker.cancel_order           = stub.cancel_order
+    real_broker.cancel_all_open_orders = stub.cancel_all_open_orders
+    real_broker.settled_cash           = stub.settled_cash
+    real_broker.closed_orders          = lambda **kw: []   # default: no fills
+    real_broker.IS_PAPER               = True
 
     sent = []
     real_alerts._send_raw = lambda text, retry=2: sent.append(text) or True
@@ -100,23 +102,23 @@ def test_loss_at_limit_triggers_halt():
     }
 
     # The exit logic sums to session_pnl; we'll skip the broker round-trip and
-    # call execute_exit directly with a known fill
-    # To do that, we need broker.market_sell_position to work
+    # call execute_exit directly with a known fill.
     def stub_sell(ticker):
         return {"order_id": "stub-sell", "ticker": ticker, "filled_price": 97.0}
     real_broker.market_sell_position = stub_sell
-    # And client().get_orders for the fill lookup
-    class FakeClient:
-        def get_orders(self, req):
-            return [type("O", (), {
-                "id": "stub-sell", "symbol": "TEST",
-                "side": "SELL", "order_type": "MARKET",
-                "filled_qty": 10.0, "filled_avg_price": 97.0,
-                "limit_price": None, "stop_price": None,
-                "status": "FILLED", "submitted_at": None, "filled_at": None,
-                "qty": 10.0, "notional": None,
-            })()]
-    real_broker.client = lambda: FakeClient()
+    # broker.closed_orders supplies the realized fill price after the sell
+    real_broker.closed_orders = lambda **kw: [{
+        "order_id":     "stub-sell",
+        "ticker":       "TEST",
+        "side":         "SELL",
+        "type":         "MKT",
+        "qty":          10.0,
+        "filled_qty":   10.0,
+        "filled_price": 97.0,
+        "limit_price":  None,
+        "stop_price":   None,
+        "status":       "filled",
+    }]
 
     live_ex1.execute_exit("TEST", "STOP_LOSS", 97.0, bar_time="10:30")
 

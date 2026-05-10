@@ -449,16 +449,11 @@ def execute_exit(ticker: str, reason: str, expected_price: float,
     time.sleep(2)
     fill_price = expected_price
     try:
-        # Most recent SELL order for this ticker today
-        # (We just placed one; it should be the newest filled SELL.)
-        from alpaca.trading.requests import GetOrdersRequest
-        from alpaca.trading.enums import QueryOrderStatus
-        recent = broker.client().get_orders(GetOrdersRequest(
-            status=QueryOrderStatus.CLOSED, symbols=[ticker], limit=5,
-        ))
-        for o in recent:
-            if str(o.side).upper().endswith("SELL") and o.filled_avg_price:
-                fill_price = float(o.filled_avg_price)
+        # Most recent SELL fill for this ticker today
+        recent = broker.closed_orders(symbols=[ticker], limit=5)
+        for o in reversed(recent):  # newest first
+            if o["side"].upper().endswith("SELL") and o["filled_price"]:
+                fill_price = float(o["filled_price"])
                 break
     except Exception:
         pass
@@ -533,20 +528,15 @@ def _reconcile_broker_closed(ticker: str, bar_time: str | None = None):
     fill_price = pos["entry_price"]
     reason     = "BROKER_FILL"
     try:
-        from alpaca.trading.requests import GetOrdersRequest
-        from alpaca.trading.enums import QueryOrderStatus
-        recent = broker.client().get_orders(GetOrdersRequest(
-            status=QueryOrderStatus.CLOSED, symbols=[ticker], limit=5,
-        ))
-        for o in recent:
-            side = str(o.side).upper()
-            if "SELL" in side and o.filled_avg_price:
-                fill_price = float(o.filled_avg_price)
-                # Distinguish stop vs TP by order type
-                otype = str(o.order_type).upper() if o.order_type else ""
-                if "STOP" in otype:
+        recent = broker.closed_orders(symbols=[ticker], limit=5)
+        for o in reversed(recent):  # newest first
+            side = o["side"].upper()
+            if "SELL" in side and o["filled_price"]:
+                fill_price = float(o["filled_price"])
+                otype = o["type"].upper()
+                if "STP" in otype or "STOP" in otype:
                     reason = "STOP_LOSS"
-                elif "LIMIT" in otype:
+                elif "LMT" in otype or "LIMIT" in otype:
                     reason = "TAKE_PROFIT"
                 break
     except Exception:

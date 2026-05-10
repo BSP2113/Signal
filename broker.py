@@ -1,34 +1,28 @@
 """
-broker.py — Alpaca trading API wrapper for Signal Reader live execution.
+broker.py — IBKR trading API wrapper for Signal Reader live execution.
 
-Thin layer on top of alpaca-py. Every trading action goes through here so we
-can swap paper ↔ live by changing one .env variable, and so we have one place
-to add logging, error handling, and (eventually) a kill switch.
+Thin layer on top of ib_insync. Public interface matches the previous Alpaca
+version so live_ex1.py / alerts.py / tests need no changes.
 
-Used by live_ex1.py — never call alpaca-py directly from the runner.
+Connects to IB Gateway running on localhost (managed by IBC under systemd).
+Paper port = 4002, live port = 4001.
 
 Account-type assumption: CASH account. Functions that would only matter on a
-margin account (shorting, leverage checks) are intentionally omitted.
+margin account (shorting, leverage) are intentionally omitted.
 """
 
 import os
+import math
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import (
-    MarketOrderRequest,
-    LimitOrderRequest,
-    StopOrderRequest,
-    GetOrdersRequest,
-)
-from alpaca.trading.enums import OrderSide, TimeInForce, OrderStatus, QueryOrderStatus
+from ib_insync import IB, Stock, MarketOrder, LimitOrder, StopOrder
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
 def _load_env():
-    """Read API key/secret/base from Signal/.env (the file the simulator already uses)."""
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     cfg = {}
     if os.path.exists(env_path):
@@ -43,32 +37,34 @@ def _load_env():
 
 
 _cfg = _load_env()
-_API_KEY    = _cfg.get("ALPACA_API_KEY")
-_API_SECRET = _cfg.get("ALPACA_API_SECRET")
-_BASE_URL   = _cfg.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
-IS_PAPER    = "paper" in _BASE_URL.lower()
-
-if not _API_KEY or not _API_SECRET:
-    raise RuntimeError("Alpaca credentials missing from Signal/.env")
+_HOST      = _cfg.get("IBKR_HOST", "127.0.0.1")
+_PORT      = int(_cfg.get("IBKR_PORT", "4002"))   # 4002 paper, 4001 live
+_CLIENT_ID = int(_cfg.get("IBKR_CLIENT_ID", "1"))
+_ACCOUNT   = _cfg.get("IBKR_ACCOUNT", "")          # blank = primary
+IS_PAPER   = _PORT == 4002
 
 
-# ── Client (lazy singleton) ───────────────────────────────────────────────────
-_client: Optional[TradingClient] = None
+# ── Client (lazy singleton, reconnects if dropped) ────────────────────────────
+_client: Optional[IB] = None
+_client_lock = threading.Lock()
 
 
-def client() -> TradingClient:
+def client() -> IB:
     global _client
-    if _client is None:
-        _client = TradingClient(api_key=_API_KEY, secret_key=_API_SECRET, paper=IS_PAPER)
-    return _client
+    with _client_lock:
+        if _client is None or not _client.isConnected():
+            ib = IB()
+            ib.connect(_HOST, _PORT, clientId=_CLIENT_ID, timeout=15)
+            _client = ib
+        return _client
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 @dataclass
 class Account:
-    cash: float                # settled cash
-    buying_power: float        # what the broker says we can spend right now
-    equity: float              # total account value (cash + positions market value)
+    cash: float
+    buying_power: float
+    equity: float
     portfolio_value: float
     pattern_day_trader: bool
     is_paper: bool
@@ -85,64 +81,95 @@ class Position:
 
 
 # ── Account / cash helpers ────────────────────────────────────────────────────
+def _summary() -> dict:
+    rows = client().accountSummary(_ACCOUNT) if _ACCOUNT else client().accountSummary()
+    out = {}
+    for r in rows:
+        try:
+            out[r.tag] = float(r.value)
+        except (TypeError, ValueError):
+            out[r.tag] = r.value
+    return out
+
+
 def account() -> Account:
-    a = client().get_account()
+    s = _summary()
+    cash = float(s.get("SettledCash", s.get("TotalCashValue", 0)))
     return Account(
-        cash             = float(a.cash),
-        buying_power     = float(a.buying_power),
-        equity           = float(a.equity),
-        portfolio_value  = float(a.portfolio_value),
-        pattern_day_trader = bool(a.pattern_day_trader),
-        is_paper         = IS_PAPER,
+        cash               = cash,
+        buying_power       = float(s.get("AvailableFunds", cash)),
+        equity             = float(s.get("NetLiquidation", 0)),
+        portfolio_value    = float(s.get("GrossPositionValue", 0)) + cash,
+        pattern_day_trader = False,  # cash account is exempt
+        is_paper           = IS_PAPER,
     )
 
 
 def settled_cash() -> float:
-    """Cash the broker says is available to spend RIGHT NOW. In a cash account
-    this excludes proceeds from same-day sells (they settle T+1)."""
-    return account().buying_power
+    """Cash actually available (T+1 settled in a cash account)."""
+    s = _summary()
+    return float(s.get("AvailableFunds", s.get("SettledCash", 0)))
 
 
 # ── Position helpers ──────────────────────────────────────────────────────────
 def position(ticker: str) -> Optional[Position]:
-    """Return current position for ticker, or None if flat."""
-    try:
-        p = client().get_open_position(ticker)
-    except Exception:
-        return None
-    return Position(
-        ticker             = p.symbol,
-        qty                = float(p.qty),
-        avg_entry          = float(p.avg_entry_price),
-        market_value       = float(p.market_value),
-        unrealized_pnl     = float(p.unrealized_pl),
-        unrealized_pnl_pct = float(p.unrealized_plpc) * 100,
-    )
+    for p in client().portfolio():
+        if p.contract.symbol == ticker and p.position != 0:
+            qty = float(p.position)
+            cost = float(p.averageCost)
+            return Position(
+                ticker             = ticker,
+                qty                = qty,
+                avg_entry          = cost,
+                market_value       = float(p.marketValue),
+                unrealized_pnl     = float(p.unrealizedPNL),
+                unrealized_pnl_pct = (float(p.unrealizedPNL) / (cost * qty)) * 100 if (cost and qty) else 0.0,
+            )
+    return None
 
 
 def all_positions() -> list[Position]:
-    """All currently-open positions across the account."""
     out = []
-    for p in client().get_all_positions():
+    for p in client().portfolio():
+        if p.position == 0:
+            continue
+        qty = float(p.position)
+        cost = float(p.averageCost)
         out.append(Position(
-            ticker             = p.symbol,
-            qty                = float(p.qty),
-            avg_entry          = float(p.avg_entry_price),
-            market_value       = float(p.market_value),
-            unrealized_pnl     = float(p.unrealized_pl),
-            unrealized_pnl_pct = float(p.unrealized_plpc) * 100,
+            ticker             = p.contract.symbol,
+            qty                = qty,
+            avg_entry          = cost,
+            market_value       = float(p.marketValue),
+            unrealized_pnl     = float(p.unrealizedPNL),
+            unrealized_pnl_pct = (float(p.unrealizedPNL) / (cost * qty)) * 100 if (cost and qty) else 0.0,
         ))
     return out
 
 
 # ── Order placement ───────────────────────────────────────────────────────────
+def _stock(ticker: str) -> Stock:
+    c = Stock(ticker, "SMART", "USD")
+    client().qualifyContracts(c)
+    return c
+
+
+def _latest_price(ticker: str) -> float:
+    """Snapshot price for dollar→qty conversion. Falls back to last close."""
+    c = _stock(ticker)
+    [tk] = client().reqTickers(c)
+    price = tk.marketPrice()
+    if price != price or price <= 0:  # NaN
+        price = tk.last or tk.close or 0
+    if not price or price <= 0:
+        raise RuntimeError(f"_latest_price {ticker}: no price available")
+    return float(price)
+
+
 def market_buy(ticker: str, dollars: float) -> dict:
     """
     Submit a market BUY for approximately `dollars` worth of `ticker`.
-    Uses notional sizing (Alpaca calculates qty from current price), so we
-    don't have to worry about lot rounding.
-
-    Returns a dict with order_id, qty (after fill), submitted_at, status.
+    Whole shares only — qty = floor(dollars / latest_price). May leave a few
+    dollars unspent vs Alpaca's exact-notional behavior.
     """
     if dollars <= 0:
         raise ValueError(f"market_buy: dollars must be positive (got {dollars})")
@@ -151,100 +178,149 @@ def market_buy(ticker: str, dollars: float) -> dict:
         raise RuntimeError(f"market_buy {ticker}: ${dollars:.2f} requested but only "
                            f"${bp:.2f} buying power available")
 
-    order = client().submit_order(MarketOrderRequest(
-        symbol        = ticker,
-        notional      = round(dollars, 2),
-        side          = OrderSide.BUY,
-        time_in_force = TimeInForce.DAY,
-    ))
-    return _order_summary(order)
+    price = _latest_price(ticker)
+    qty = math.floor(dollars / price)
+    if qty < 1:
+        raise RuntimeError(f"market_buy {ticker}: ${dollars:.2f} / ${price:.2f} = {qty} shares")
+
+    order = MarketOrder("BUY", qty, tif="DAY", outsideRth=False)
+    trade = client().placeOrder(_stock(ticker), order)
+    client().sleep(1.5)  # brief wait for status update
+    return _trade_summary(trade)
 
 
 def market_sell_position(ticker: str) -> dict:
-    """Liquidate the entire open position for ticker via market sell."""
     pos = position(ticker)
     if pos is None or pos.qty == 0:
         raise RuntimeError(f"market_sell_position {ticker}: no open position")
 
-    order = client().submit_order(MarketOrderRequest(
-        symbol        = ticker,
-        qty           = abs(pos.qty),
-        side          = OrderSide.SELL,
-        time_in_force = TimeInForce.DAY,
-    ))
-    return _order_summary(order)
+    order = MarketOrder("SELL", abs(pos.qty), tif="DAY", outsideRth=False)
+    trade = client().placeOrder(_stock(ticker), order)
+    client().sleep(1.5)
+    return _trade_summary(trade)
 
 
 def attach_stop_loss(ticker: str, qty: float, stop_price: float) -> dict:
-    """
-    Submit a native stop-loss SELL order for `qty` shares of `ticker`.
-    Broker watches every tick and fills at market when stop_price is hit.
-    Survives our script crashing.
-    """
-    order = client().submit_order(StopOrderRequest(
-        symbol        = ticker,
-        qty           = qty,
-        side          = OrderSide.SELL,
-        time_in_force = TimeInForce.DAY,
-        stop_price    = round(stop_price, 2),
-    ))
-    return _order_summary(order)
+    order = StopOrder("SELL", qty, round(stop_price, 2), tif="DAY", outsideRth=False)
+    trade = client().placeOrder(_stock(ticker), order)
+    client().sleep(1.0)
+    return _trade_summary(trade)
 
 
 def attach_take_profit(ticker: str, qty: float, limit_price: float) -> dict:
-    """
-    Submit a native take-profit limit SELL order. Used for MAYBE-rated entries
-    only — TAKE-rated trades skip the +3% cap by design.
-    """
-    order = client().submit_order(LimitOrderRequest(
-        symbol        = ticker,
-        qty           = qty,
-        side          = OrderSide.SELL,
-        time_in_force = TimeInForce.DAY,
-        limit_price   = round(limit_price, 2),
-    ))
-    return _order_summary(order)
+    order = LimitOrder("SELL", qty, round(limit_price, 2), tif="DAY", outsideRth=False)
+    trade = client().placeOrder(_stock(ticker), order)
+    client().sleep(1.0)
+    return _trade_summary(trade)
 
 
 # ── Order management ──────────────────────────────────────────────────────────
 def open_orders(ticker: Optional[str] = None) -> list[dict]:
-    """All open (unfilled) orders. Optionally filter to a single ticker."""
-    req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[ticker] if ticker else None)
-    return [_order_summary(o) for o in client().get_orders(req)]
+    out = []
+    for trade in client().openTrades():
+        if trade.orderStatus.status in ("Filled", "Cancelled", "ApiCancelled", "Inactive"):
+            continue
+        if ticker and trade.contract.symbol != ticker:
+            continue
+        out.append(_trade_summary(trade))
+    return out
 
 
 def cancel_order(order_id: str) -> None:
-    client().cancel_order_by_id(order_id)
+    target = int(order_id)
+    for trade in client().openTrades():
+        if trade.order.orderId == target:
+            client().cancelOrder(trade.order)
+            return
 
 
 def cancel_all_open_orders() -> int:
-    """Cancel every open order across the account. Returns count cancelled."""
-    cancelled = client().cancel_orders()
-    return len(cancelled) if cancelled else 0
+    n = 0
+    for trade in client().openTrades():
+        client().cancelOrder(trade.order)
+        n += 1
+    return n
+
+
+def closed_orders(symbols: Optional[list[str]] = None,
+                  after: Optional[datetime] = None,
+                  until: Optional[datetime] = None,
+                  limit: int = 500) -> list[dict]:
+    """
+    Filled orders since the IB session started, normalized to the same shape
+    as _trade_summary. Used by live_ex1.execute_exit + reconcile_live.
+
+    Note: IBKR's session-scoped Trade list resets on each Gateway restart, so
+    this is reliable for same-day reconciliation but won't return yesterday's
+    orders. That matches our usage — reconcile runs at EOD.
+    """
+    out = []
+    for trade in client().trades():
+        if trade.orderStatus.status != "Filled":
+            continue
+        if symbols and trade.contract.symbol not in symbols:
+            continue
+        # Time filter: use fill time if available, else order time
+        fill_ts = None
+        if trade.fills:
+            fill_ts = trade.fills[-1].execution.time  # UTC datetime
+        if after and fill_ts and fill_ts < after:
+            continue
+        if until and fill_ts and fill_ts >= until:
+            continue
+        summary = _trade_summary(trade)
+        if fill_ts:
+            summary["filled_at"] = fill_ts.isoformat()
+        out.append(summary)
+        if len(out) >= limit:
+            break
+    return out
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
-def _order_summary(o) -> dict:
-    """Trim Alpaca's order object to the fields the runner cares about."""
+def _trade_summary(trade) -> dict:
+    """Trim ib_insync Trade to the same shape Alpaca's _order_summary produced."""
+    o = trade.order
+    s = trade.orderStatus
+    fills = trade.fills
+    fill_avg = None
+    if fills:
+        total_qty = sum(f.execution.shares for f in fills)
+        if total_qty > 0:
+            fill_avg = sum(f.execution.price * f.execution.shares for f in fills) / total_qty
     return {
-        "order_id":     str(o.id),
-        "ticker":       o.symbol,
-        "side":         o.side.value if hasattr(o.side, "value") else str(o.side),
-        "type":         o.order_type.value if hasattr(o.order_type, "value") else str(o.order_type),
-        "qty":          float(o.qty) if o.qty else 0.0,
-        "notional":     float(o.notional) if o.notional else None,
-        "filled_qty":   float(o.filled_qty) if o.filled_qty else 0.0,
-        "filled_price": float(o.filled_avg_price) if o.filled_avg_price else None,
-        "limit_price":  float(o.limit_price) if o.limit_price else None,
-        "stop_price":   float(o.stop_price) if o.stop_price else None,
-        "status":       o.status.value if hasattr(o.status, "value") else str(o.status),
-        "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
+        "order_id":     str(o.orderId),
+        "ticker":       trade.contract.symbol,
+        "side":         o.action,                                 # "BUY" / "SELL"
+        "type":         o.orderType,                              # "MKT" / "LMT" / "STP"
+        "qty":          float(o.totalQuantity),
+        "notional":     None,
+        "filled_qty":   float(s.filled or 0),
+        "filled_price": float(fill_avg) if fill_avg else (float(s.avgFillPrice) if s.avgFillPrice else None),
+        "limit_price":  float(o.lmtPrice) if o.lmtPrice else None,
+        "stop_price":   float(o.auxPrice) if o.auxPrice else None,
+        "status":       _status_to_alpaca(s.status),
+        "submitted_at": datetime.now().isoformat(),
     }
+
+
+def _status_to_alpaca(s: str) -> str:
+    return {
+        "Submitted":       "new",
+        "PreSubmitted":    "pending_new",
+        "PendingSubmit":   "pending_new",
+        "ApiPending":      "pending_new",
+        "Filled":          "filled",
+        "PartiallyFilled": "partially_filled",
+        "Cancelled":       "canceled",
+        "ApiCancelled":    "canceled",
+        "Inactive":        "rejected",
+    }.get(s, s.lower())
 
 
 # ── Smoke test (run as `venv/bin/python3 broker.py`) ──────────────────────────
 if __name__ == "__main__":
-    print(f"Broker connected to: {_BASE_URL}  (paper={IS_PAPER})")
+    print(f"Broker connecting to {_HOST}:{_PORT}  (paper={IS_PAPER})")
     a = account()
     print(f"  cash:           ${a.cash:>12,.2f}")
     print(f"  buying_power:   ${a.buying_power:>12,.2f}")
