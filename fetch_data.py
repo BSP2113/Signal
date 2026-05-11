@@ -563,6 +563,20 @@ PER_DAY_GROWTH = {
             "TSLA entered ORB at 09:45 as a MAYBE with 3.2x volume and held until the 14:00 hard close, returning +0.90% ($15.62) after 4 hours and 15 minutes. TSLA is excluded from early weakness exits, and the no-progress rule didn't fire at T+90 (11:15) because price was above entry at that check. The result is $15.62 tied up in capital that was never redeployed \u2014 DELL's PM_ORB TAKE fired at 12:53 and returned $92.47 in 11 minutes. MAYBE-rated positions drifting between +0% and +1% past noon are dead weight. Test: For MAYBE-rated ORB entries still open at 12:00 with unrealized gain below +0.5%, apply a time-based exit at 12:00 rather than holding to the 14:00 hard close."
         )
     ],
+    "2026-05-11": [
+        (
+            "NVDA MAYBE EARLY_WEAK at 10:30 -$4.97 on negative gap",
+            "NVDA fired ORB MAYBE with strong 2.9x volume but on a -0.1% gap and never made progress, exiting via EARLY_WEAK at 10:30 for -$4.97 (-0.37%). This pattern \u2014 MAYBE-rated ORB on a flat-to-negative gap \u2014 produced a losing trade despite high volume conviction. The volume looked strong but direction was absent: negative gap tickers firing ORB MAYBE often lack the underlying momentum to follow through, and the EARLY_WEAK rule caught it before deeper damage but it still consumed capital that could have funded later TAKE-quality setups. Test: For ORB MAYBE entries on tickers with gap between -0.5% and +0.5% (flat opens), require volume \u2265 3.5x avg AND score \u2265 1 instead of \u2265 0, otherwise SKIP."
+        ),
+        (
+            "CRDO STOP_LOSS in 7 minutes -$13.24 on shallow gap MAYBE",
+            "CRDO entered at 09:48 on an ORB MAYBE with 3.0x volume and a tiny +0.5% gap, then hit STOP_LOSS at 09:55 \u2014 only 7 minutes of holding for -1.81% / -$13.24. The fastest-fail trade of the day. Shallow gaps near zero combined with MAYBE ratings are showing a pattern: NVDA (-0.1% gap MAYBE) and CRDO (+0.5% gap MAYBE) both failed, while the winners had either decisively negative gaps with reversal volume (COIN -3.0%, IONQ -1.3%) or clean positive gaps (ASTS +2.8%). The MAYBE rating on near-flat gaps is producing whipsaws. Test: Add a 'gap conviction' filter \u2014 ORB MAYBE entries require |gap| \u2265 1.0% OR volume \u2265 4.0x avg; otherwise downgrade to SKIP."
+        ),
+        (
+            "ASTS TRAILING_STOP at +0.13% after 13 minutes capped a +2.8% gapper",
+            "ASTS entered 09:46 on an ORB MAYBE with a +2.8% gap (a GAP_GO-quality setup) and exited just 13 minutes later via TRAILING_STOP for +$0.83 (+0.13%). The 2.0% trail activated after a +1% peak but fired before the trade could develop \u2014 a +2.8% gap with 1.6x volume should have more runway than 13 minutes. Three of today's winners (COIN, IONQ, TSLA) all hit full +3% TAKE_PROFIT, while ASTS got trailed out for a rounding error. The trail is too tight for high-gap MAYBE setups early in the session when volatility is elevated. Test: For entries before 10:00 on tickers with |gap| \u2265 2.0%, widen the trailing stop from 2.0% to 2.5% off peak, and require peak \u2265 +1.5% (not +1.0%) before the trail activates."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -589,6 +603,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-06": [60, None, 62],     # note 1 → confirm-bar exit for large-gap GAP_GO → shipped | note 3 → PM_ORB MAYBE after 13:00 → not pursuing
     "2026-05-07": [None, None, None],
     "2026-05-08": [None, None, None],
+    "2026-05-11": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -619,6 +634,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "DELL TAKE fired 7 min after MAYBE cluster \u2014 TAKE-priority window could avoid churn",
             "DELL's PM_ORB TAKE at 3.7x volume hit TAKE_PROFIT in just 3 minutes (+$92.09, +3.00%) and was the dominant signal of the afternoon. It fired at 12:52 \u2014 7 minutes after the first PM_ORB MAYBEs opened at 12:45. If capital had not been deployed into AMD, KOPN, and SNDK MAYBEs first, DELL could have received its full TAKE allocation without triggering REALLOC and without the -$11.47 churn cost. On BULL days with strong morning momentum, the best PM_ORB signal often arrives slightly after weaker ones, not first. Today EX2's PM_ORB layer netted +$98.95, but its gross potential was ~$110+ before churn. Test: In BULL market sessions, implement a 10-minute PM_ORB TAKE-priority hold (12:44\u201312:54) where MAYBE allocations are deferred and capital is reserved for a TAKE signal; deploy MAYBEs only if no TAKE fires within the window."
+        )
+    ],
+    "2026-05-11": [
+        (
+            "CRDO re-entry rescued a stopped-out loss",
+            "CRDO #1 stopped out at -$13.34 at 09:55, but CRDO #2 re-entered 13 minutes later at 10:08 ($197.49) as a TAKE on 2.4x volume and rode to TIME_CLOSE for +$25.98 (+4.69%). Net ticker P&L flipped from -$13.34 to +$12.64 \u2014 the re-entry was the only reason CRDO finished green today. This is exactly the scenario re-entries were designed for: a stop-out where the breakout thesis re-asserts itself with stronger volume. The TAKE rating with 2.4x volume (vs MAYBE 3.0x on the original) signaled higher conviction. Test: when a re-entry fires within 30 minutes of a STOP_LOSS exit AND the re-entry volume multiple is greater than or equal to the original signal's volume multiple, upgrade the re-entry allocation from 75% to 90% of normal TAKE size."
+        ),
+        (
+            "PM_ORB MAYBE-rated entries with sub-1.5x volume both won but barely",
+            "Both PM_ORB signals today (ASTS #3 at 1.1x vol and TSLA #2 at 1.6x vol) were MAYBE-rated and both rode to TIME_CLOSE for small gains (+$4.60 and +$14.07). Neither hit TAKE_PROFIT \u2014 they were drift-up holds, not breakouts. ASTS #3 at 1.1x volume in particular is right at the volume floor and added only +0.69%; that's barely above noise. TSLA #2 worked but the entry at 12:53 left only ~67 minutes until TIME_CLOSE, limiting upside. The pattern: low-conviction PM_ORBs ride neutral-to-positive afternoon drift rather than producing real breakouts. Test: require PM_ORB MAYBE signals to have volume greater than or equal to 1.5x PM window avg (current floor 1.0x); reject anything below as SKIP to avoid micro-gain trades that tie up capital."
+        ),
+        (
+            "ASTS triple-dip: original + re-entry + PM_ORB all on same ticker",
+            "ASTS fired three separate signals today: ORB #1 (+$0.84 TRAILING_STOP), REENTRY #2 (+$7.07 TIME_CLOSE), and PM_ORB #3 (+$4.60 TIME_CLOSE) \u2014 three concurrent or overlapping positions in the same name totaling +$12.51. While the net was positive, ASTS #2 (entry 12:42) and ASTS #3 (entry 12:45) entered three minutes apart and exited at the exact same price/time \u2014 they were effectively the same trade taken twice, doubling ticker concentration risk for no diversification benefit. If ASTS had reversed into the close, we'd have stacked two losses on correlated entries. Test: when a re-entry and a PM_ORB on the same ticker would both fire within 15 minutes of each other, take only the higher-rated signal (TAKE over MAYBE; on ties, the earlier entry) and skip the second to prevent same-ticker stacking."
         )
     ],
 }
