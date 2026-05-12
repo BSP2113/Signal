@@ -12,3 +12,6 @@ __pycache__/
 data_cache/
 backups/
 dry_state.json
+logs/
+*.bak
+data.json
