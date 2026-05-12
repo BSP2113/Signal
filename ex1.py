@@ -71,6 +71,7 @@ PM_ORB_TAKE_FLOOR   = 2.0      # minimum vol ratio vs PM window avg to earn TAKE
 SPY_BULL       =  0.004   # premarket gap > +0.4% = bullish (matches market_check.py)
 SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
+SPY_GAP_ORB_MAYBE_SKIP = -0.3  # % — skip ORB MAYBE entries when SPY pre-mkt gap <= this (0/9 historical, see Shipped #74)
 ALLOC_PCT_BULL = {"TAKE": 0.50, "MAYBE": 0.20}
 ALLOC_PCT_NEUT = {"TAKE": 0.45, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
@@ -565,6 +566,12 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
             for trade_num, (entry, exit_) in enumerate(ticker_trades, 1):
                 if trade_num > 1 and market_state != "bullish":
                     skipped.append(f"{ticker}#{trade_num}(no-reentry-{market_state})")
+                    continue
+
+                # ORB MAYBE on weak-tape opens — 0/9 historically when SPY gap <= -0.3%
+                if (entry["signal"] == "ORB" and entry["rating"] == "MAYBE"
+                        and spy_gap_pct <= SPY_GAP_ORB_MAYBE_SKIP):
+                    skipped.append(f"{ticker}#{trade_num}(orb-maybe-spy-gap-{spy_gap_pct:+.2f}%)")
                     continue
 
                 alloc = round(spy_alloc(entry["rating"]) * modifier, 2)

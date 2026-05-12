@@ -583,10 +583,6 @@ PER_DAY_GROWTH = {
             "KOPN gapped a massive +23.8% and triggered GAP_GO TAKE at 09:38 with 5.8x volume \u2014 the strongest conviction signal of the day. It exited the very next bar at 09:39 via CONFIRM_BAR_EXIT for -$35.11 (-2.37%), the worst loss of the session. Extreme gap percentages (>15%) tend to be exhaustion moves rather than continuation, and entering on the first close above the opening bar high after a 23.8% gap means buying into a vertical move with no demand left. The 5.8x volume was likely climactic selling/profit-taking from gap holders, not fresh buying conviction. Test: in GAP_GO, if gap % is \u226515%, require a second confirmation bar (next bar must also close above entry bar's high) before entering, or SKIP entirely if gap \u226520%.</br></br>"
         ),
         (
-            "Three MAYBE ORB stops fired within 48 min for -$47.73",
-            "PLTR (MAYBE 1.9x, entry 09:45, stopped 10:33 -$18.03), AMD (MAYBE 2.4x, entry 09:46, stopped 09:57 -$15.87), and IONQ (MAYBE 2.4x, entry 09:46, stopped 09:47 -$13.83) all triggered as MAYBE ORBs within one minute of each other and all hit STOP_LOSS \u2014 IONQ in a single bar. Notably AMD gapped -2.1% and PLTR gapped -0.3%, meaning both fired ORB breakouts against negative or flat overnight tone in a NEUT market. In NEUT conditions, MAYBE-rated ORBs on tickers gapping down appear to be low-quality breakouts that quickly fail. Test: in NEUT markets, block MAYBE ORB entries on tickers with gap % \u2264 0% (negative or flat overnight gap), since the day above showed 0/3 such entries worked.</br></br>"
-        ),
-        (
             "IONQ ORB MAYBE stopped out in 1 minute -$13.83",
             "IONQ entered at 09:46 at $59.05 and stopped at 09:47 at $57.92 \u2014 a -1.91% move in a single 1-minute bar, exiting via STOP_LOSS instantly. This is a textbook false breakout: the ORB high was tagged, entry filled, and the next bar fully retraced through the stop with no opportunity for the trade to develop. A one-bar stop suggests the breakout bar itself was the high of the move (sweep + reversal). Requiring price to hold above the ORB high for one additional bar before entering would have skipped this trade entirely. Test: add a 1-bar confirmation gate to ORB entries \u2014 only enter on bar N+1 if bar N+1's low remains above the ORB high, otherwise cancel the signal for that ticker.</br></br>"
         )
@@ -618,7 +614,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-07": [None, None, None],
     "2026-05-08": [None, None, None],
     "2026-05-11": [None, None, None],
-    "2026-05-12": [None, None, None],
+    "2026-05-12": [None, None],             # note 2 (MAYBE ORB cluster) graduated to Shipped 74 and removed from list
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -1681,6 +1677,16 @@ def build_dashboard(assets):
     # --- Improvements panel ---
     # Items removed from GROWTH_POOL but still shown on the board (keyed by archived index)
     ARCHIVED_ITEMS = {
+        74: {
+            "title":    "Block ORB MAYBE entries on weak-tape opens (SPY pre-market gap ≤ -0.3%)",
+            "date":     "May 12, 2026",
+            "original": "ORB MAYBE entries on red-SPY-gap days were a recurring loss source — May 12 alone had three "
+                        "(PLTR, AMD, IONQ) all stop out for -$47.73, and Apr 28 (SPY -0.59%) had six ORB MAYBEs "
+                        "all lose for -$26 net. Bucket analysis across 22 live days showed ORB MAYBE was 0W/9L "
+                        "below SPY gap -0.3% (-$91.89), while bucket above -0.3% was 53% win rate. "
+                        "Proposed: skip ORB MAYBE entries when SPY pre-market gap ≤ -0.3%. ORB TAKE, GAP_GO, "
+                        "PM_ORB, AFTERNOON, and re-entries remain unaffected.",
+        },
         73: {
             "title":    "TAKE allocation increased — BULL 35→50%, NEUT 30→45% (MAYBE unchanged)",
             "date":     "May 9, 2026",
@@ -2121,6 +2127,28 @@ def build_dashboard(assets):
     }
 
     GROWTH_RESOLUTIONS = {
+        74: {
+            "what":   "Block ORB MAYBE entries when SPY pre-market gap ≤ -0.3%",
+            "date":   "May 12, 2026",
+            "detail": "ex1.py and ex2.py skip any ORB-signal MAYBE-rated entry on days where SPY's pre-market gap "
+                      "is at or below -0.3%. Constant SPY_GAP_ORB_MAYBE_SKIP = -0.3. The gate fires before "
+                      "allocation/modifier math and logs the skip with the SPY gap value for traceability. "
+                      "ORB TAKE entries, GAP_GO entries, PM_ORB, AFTERNOON, and EX2 re-entries are unaffected — "
+                      "this targets only the morning ORB MAYBE bucket, which was the source of all 9 historical "
+                      "losses below the -0.3% threshold.",
+            "impact": "Full chronological re-run of all 22 EX1/EX2/EX3 days (Apr 13 – May 12) with the filter active: "
+                      "EX1 +$15.69 (+$894.42 → +$910.11), EX2 +$110.57 (+$993.23 → +$1,103.80), EX3 +$79.02 "
+                      "(+$1,099.54 → +$1,178.56). Filter fired on 2 days, both as designed: Apr 28 (SPY -0.59%, "
+                      "dropped 6 ORB MAYBE, EX1 -$26.01 → +$17.88, +$43.89) and May 12 (SPY -0.32%, dropped 3 "
+                      "ORB MAYBE, EX1 -$82.84 → -$34.03, +$48.81). Apr 29 also gained +$6.36 from streak-cut "
+                      "unwind (Apr 28 became a win → no MAYBE-half on Apr 29). Trade win rate "
+                      "53.2% → 56.8% (crosses 55% graduation threshold). Underlying bucket: ORB MAYBE on SPY gap "
+                      "< -0.3% was 0W/9L (-$91.89) — zero winners blocked. Note: EX1 delta is smaller than the "
+                      "first-order +$94 prediction because the chronological re-run also removed pre-existing "
+                      "TICKER_START gate violations (CRDO/KOPN/DELL/UPST/SNDK trades on dates before their "
+                      "effective start). That cleanup cost ~$80 in mostly-winning contaminated trades but produced "
+                      "a coherent dataset going forward.",
+        },
         73: {
             "what":   "TAKE allocations raised: BULL 35%→50%, NEUT 30%→45%. MAYBE (20%/15%/10%) and BEAR TAKE (10%) unchanged.",
             "date":   "May 9, 2026",

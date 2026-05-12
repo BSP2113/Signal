@@ -76,6 +76,7 @@ DRAWDOWN_CUT       = 0.50
 SPY_BULL       =  0.004   # premarket gap > +0.4% = bullish (matches market_check.py)
 SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
+SPY_GAP_ORB_MAYBE_SKIP = -0.3  # % — skip ORB MAYBE entries when SPY pre-mkt gap <= this (0/9 historical, see Shipped #74)
 REALLOC_MIN_TIME    = "11:00"  # only reallocate after the morning ORB window
 REALLOC_MAX_PNL_PCT = 0.5      # only sell positions currently below +0.5% gain
 PM_ORB_RANGE_START  = "12:00"  # afternoon consolidation range start
@@ -712,6 +713,13 @@ def run_ex2(trade_date=None, backfill=False, result_file=None, realloc_mode="bas
             continue
 
         entry, exit_ = orb
+
+        # ORB MAYBE on weak-tape opens — 0/9 historically when SPY gap <= -0.3%
+        if (entry["signal"] == "ORB" and entry["rating"] == "MAYBE"
+                and spy_gap_pct <= SPY_GAP_ORB_MAYBE_SKIP):
+            skipped.append(f"{ticker}(orb-maybe-spy-gap-{spy_gap_pct:+.2f}%)")
+            continue
+
         modifier = atr_modifier.get(ticker, 1.0)
         alloc    = round(base_alloc(entry["rating"]) * modifier, 2)
         if in_streak and entry["rating"] == "MAYBE":
