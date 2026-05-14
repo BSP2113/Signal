@@ -569,10 +569,6 @@ PER_DAY_GROWTH = {
             "NVDA fired ORB MAYBE with strong 2.9x volume but on a -0.1% gap and never made progress, exiting via EARLY_WEAK at 10:30 for -$4.97 (-0.37%). This pattern \u2014 MAYBE-rated ORB on a flat-to-negative gap \u2014 produced a losing trade despite high volume conviction. The volume looked strong but direction was absent: negative gap tickers firing ORB MAYBE often lack the underlying momentum to follow through, and the EARLY_WEAK rule caught it before deeper damage but it still consumed capital that could have funded later TAKE-quality setups. Test: For ORB MAYBE entries on tickers with gap between -0.5% and +0.5% (flat opens), require volume \u2265 3.5x avg AND score \u2265 1 instead of \u2265 0, otherwise SKIP."
         ),
         (
-            "CRDO STOP_LOSS in 7 minutes -$13.24 on shallow gap MAYBE",
-            "CRDO entered at 09:48 on an ORB MAYBE with 3.0x volume and a tiny +0.5% gap, then hit STOP_LOSS at 09:55 \u2014 only 7 minutes of holding for -1.81% / -$13.24. The fastest-fail trade of the day. Shallow gaps near zero combined with MAYBE ratings are showing a pattern: NVDA (-0.1% gap MAYBE) and CRDO (+0.5% gap MAYBE) both failed, while the winners had either decisively negative gaps with reversal volume (COIN -3.0%, IONQ -1.3%) or clean positive gaps (ASTS +2.8%). The MAYBE rating on near-flat gaps is producing whipsaws. Test: Add a 'gap conviction' filter \u2014 ORB MAYBE entries require |gap| \u2265 1.0% OR volume \u2265 4.0x avg; otherwise downgrade to SKIP."
-        ),
-        (
             "ASTS TRAILING_STOP at +0.13% after 13 minutes capped a +2.8% gapper",
             "ASTS entered 09:46 on an ORB MAYBE with a +2.8% gap (a GAP_GO-quality setup) and exited just 13 minutes later via TRAILING_STOP for +$0.83 (+0.13%). The 2.0% trail activated after a +1% peak but fired before the trade could develop \u2014 a +2.8% gap with 1.6x volume should have more runway than 13 minutes. Three of today's winners (COIN, IONQ, TSLA) all hit full +3% TAKE_PROFIT, while ASTS got trailed out for a rounding error. The trail is too tight for high-gap MAYBE setups early in the session when volatility is elevated. Test: For entries before 10:00 on tickers with |gap| \u2265 2.0%, widen the trailing stop from 2.0% to 2.5% off peak, and require peak \u2265 +1.5% (not +1.0%) before the trail activates."
         )
@@ -581,10 +577,6 @@ PER_DAY_GROWTH = {
         (
             "KOPN GAP_GO +23.8% gap exited next bar -$35.11",
             "KOPN gapped a massive +23.8% and triggered GAP_GO TAKE at 09:38 with 5.8x volume \u2014 the strongest conviction signal of the day. It exited the very next bar at 09:39 via CONFIRM_BAR_EXIT for -$35.11 (-2.37%), the worst loss of the session. Extreme gap percentages (>15%) tend to be exhaustion moves rather than continuation, and entering on the first close above the opening bar high after a 23.8% gap means buying into a vertical move with no demand left. The 5.8x volume was likely climactic selling/profit-taking from gap holders, not fresh buying conviction. Test: in GAP_GO, if gap % is \u226515%, require a second confirmation bar (next bar must also close above entry bar's high) before entering, or SKIP entirely if gap \u226520%.</br></br>"
-        ),
-        (
-            "IONQ ORB MAYBE stopped out in 1 minute -$13.83",
-            "IONQ entered at 09:46 at $59.05 and stopped at 09:47 at $57.92 \u2014 a -1.91% move in a single 1-minute bar, exiting via STOP_LOSS instantly. This is a textbook false breakout: the ORB high was tagged, entry filled, and the next bar fully retraced through the stop with no opportunity for the trade to develop. A one-bar stop suggests the breakout bar itself was the high of the move (sweep + reversal). Requiring price to hold above the ORB high for one additional bar before entering would have skipped this trade entirely. Test: add a 1-bar confirmation gate to ORB entries \u2014 only enter on bar N+1 if bar N+1's low remains above the ORB high, otherwise cancel the signal for that ticker.</br></br>"
         )
     ],
     "2026-05-13": [
@@ -599,6 +591,20 @@ PER_DAY_GROWTH = {
         (
             "ASTS was the only TAKE_PROFIT \u2014 +3% target is rarely reached, trailing stop never armed on 4 winners",
             "ASTS hit TAKE_PROFIT at $77.58 (+3.40%, +$21.27) \u2014 the only one of 6 trades to do so. The 2.0% trail-from-peak (which only arms after +1% peak) never triggered on META, TSLA, ARM, or DKNG even though all four peaked above +1%; their pullbacks from peak stayed under 2% so the trail stayed dormant while TIME_CLOSE swept them at lower prices than their intraday highs. The current trail is too loose to lock anything in on slow grinders. Test: once peak gain exceeds +2.0%, tighten the trailing stop from 2.0% to 1.0% from peak \u2014 locks in roughly half the gain on grinders like today instead of letting it bleed back to the close price."
+        )
+    ],
+    "2026-05-14": [
+        (
+            "Gap-down ORB MAYBE entries lost -$38.62 across IONQ, CRDO, AMD",
+            "..."
+        ),
+        (
+            "IONQ and CRDO stopped out within 10 minutes of entry \u2014 premature stop activation",
+            "..."
+        ),
+        (
+            "Late ORB entries swept the board \u2014 COIN at 10:49 hit TAKE_PROFIT in 41 min",
+            "Every ORB entry that fired after 10:10 was profitable: PLTR 10:11 \u2192 +$14.49 (TIME_CLOSE), DKNG 10:13 \u2192 +$6.71 (TIME_CLOSE), COIN 10:49 \u2192 +$30.37 (TAKE_PROFIT in 41 min). Combined: +$51.57. Every gap-down entry before 10:00 except SMCI lost. Even META at 09:52 (gap -0.1%, nearly flat) only managed -$0.35 at TIME_CLOSE. This suggests the 09:45 batch of breakouts on a NEUT/gap-down day are mostly noise, while later breakouts after the first hour represent genuine trend continuation. Test: On days where SPY is NEUT and SPY's first 15 minutes (09:30\u201309:45) close lower than open, delay ORB MAYBE eligibility window from 09:45 to 10:00 \u2014 TAKE remains eligible at 09:45 but MAYBE must wait."
         )
     ],
 }
@@ -627,9 +633,10 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-06": [60, None, 62],     # note 1 → confirm-bar exit for large-gap GAP_GO → shipped | note 3 → PM_ORB MAYBE after 13:00 → not pursuing
     "2026-05-07": [None, None, None],
     "2026-05-08": [None, None, None],
-    "2026-05-11": [None, None, None],
-    "2026-05-12": [None, None],             # note 2 (MAYBE ORB cluster) graduated to Shipped 74 and removed from list
+    "2026-05-11": [None, None],            # note 2 (gap-conviction MAYBE filter) → Not Pursuing 75 and removed from list
+    "2026-05-12": [None],                   # note 2 (MAYBE ORB cluster) graduated to Shipped 74; note 2 (1-bar ORB confirm) → Not Pursuing 36 and removed from list
     "2026-05-13": [None, None, None],
+    "2026-05-14": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -702,6 +709,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "PM_ORB only fired on DKNG despite 5 winning morning positions \u2014 filter too tight or window too narrow",
             "Only one PM_ORB signal fired today (DKNG) despite META, TSLA, ARM, and ASTS all trending up strongly into the afternoon (META +2.03%, TSLA +1.68%, ARM +1.88%, ASTS +3.40% TAKE_PROFIT at 11:43). On a clean uptrend day, more tickers should have broken above their 9:30\u201311:30 morning highs in the 12:44\u201313:30 window. Either the morning highs were already broken before 12:44 (signal missed the move) or the 2.0x PM volume floor for TAKE blocked qualifying breakouts. ASTS in particular hit TAKE_PROFIT at 11:43 \u2014 meaning it was already +3.4% above entry before PM_ORB window even opened, so the morning high was set very high and PM extension was unlikely. Test: log PM_ORB `signal_state` per ticker per day (FIRED / NO_BREAKOUT / VOL_FAIL / ALREADY_BROKEN_PRE_1244) so we can diagnose whether the 12:44 window start is missing early-afternoon breakouts that occur 12:00\u201312:44."
+        )
+    ],
+    "2026-05-14": [
+        (
+            "Re-entries netted +$2.83 but masked a deeper IONQ double-down loss",
+            "EX2's two re-entries today added a net $+2.83, but the layer's contribution is misleading. IONQ #2 fired at 10:48 as a TAKE (2.0x vol) after IONQ #1 stopped out at 09:53 \u2014 only 55 minutes after the original loss on the exact same setup that just failed. It then ground to a TRAILING_STOP at 13:18 for -$3.01, meaning EX2 lost on IONQ twice (-$12.45 + -$3.01 = -$15.46) where EX1 only lost once. CRDO #2 at 13:22 (TAKE 1.5x vol, gap -3.3%) salvaged +$5.84 via TIME_CLOSE, but it entered at 13:22 \u2014 only 38 minutes from the 14:00 hard exit \u2014 leaving almost no room for the trade to develop. The pattern: re-entries fired on gap-down tickers (IONQ -1.2%, CRDO -3.3%) where the original setup had already proven weak in a NEUT market. The +$2.83 net hides that we doubled exposure to losing names with limited runway. Test: block re-entries on tickers whose original entry was a STOP_LOSS within the same hour AND whose gap was negative \u2014 require at least 60 minutes between original stop and re-entry signal to confirm the setup has actually reset."
+        ),
+        (
+            "PM_ORB produced zero signals on a day with 4 stop-outs \u2014 filter may be too tight",
+            "PM_ORB net was $0.00 because no signals fired today, despite four morning stop-outs (AMD, IONQ, CRDO, SMCI exited via TAKE_PROFIT) that left budget available and tickers worth re-engaging in the afternoon. With morning session highs as the reference level (post-May 6 change), the threshold may be too high to clear on a NEUT day where most tickers gapped down and never reclaimed morning highs by 13:30. Meanwhile, EX1 also captured the same TIME_CLOSE winners (PLTR +$14.99, DKNG +$6.94, META -$0.36), so EX2's extra layer added nothing on a day it could have. The 12:44\u201313:30 PM_ORB window is too narrow on NEUT days when morning ranges are wide. Test: on NEUT/BEAR market state, lower PM_ORB reference from morning session high to the 11:00\u201312:30 mid-day high \u2014 captures afternoon momentum without requiring tickers to clear a stretched AM range."
+        ),
+        (
+            "Afternoon breakout at 15:59 is a structural dead-end and should be blocked",
+            "SHOP #2 fired as an AFTERNOON TAKE at 15:59 with a flagged 68.8x volume spike, entered at $97.42, and exited at $97.42 via EOD the same minute for $0.00 P&L. This is the second time an afternoon breakout has registered with zero runway \u2014 the signal fires within minutes of the 15:30/16:00 session boundary, meaning even a clean breakout has no time to develop into a real trade. The 68.8x volume reading is almost certainly closing-auction imbalance noise, not a tradeable momentum surge. EX2's afternoon layer added nothing here and risks adding losers when the closing-print bar happens to gap against us. Test: hard-block afternoon breakout entries after 15:15 \u2014 minimum 15 minutes of runway before the 15:30 EX2 time close \u2014 and require the volume spike to be confirmed across at least 2 consecutive bars to filter out closing-auction artifacts."
         )
     ],
 }
@@ -1706,6 +1727,13 @@ def build_dashboard(assets):
     # --- Improvements panel ---
     # Items removed from GROWTH_POOL but still shown on the board (keyed by archived index)
     ARCHIVED_ITEMS = {
+        75: {
+            "title":    "Gap-conviction MAYBE filter — require |gap|≥1.0% OR vol≥4.0x for ORB MAYBE entries",
+            "date":     "May 13, 2026",
+            "original": "Shallow-gap MAYBEs (NVDA -0.1% gap, CRDO +0.5% gap) failed on May 11 despite decent volume, "
+                        "while winners had either decisive gaps or unusually strong volume. Proposed: ORB MAYBE entries "
+                        "require |gap| ≥ 1.0% OR vol_ratio ≥ 4.0x average; otherwise SKIP. ORB TAKE, GAP_GO, and PM_ORB unaffected.",
+        },
         74: {
             "title":    "Block ORB MAYBE entries on weak-tape opens (SPY pre-market gap ≤ -0.3%)",
             "date":     "May 12, 2026",
@@ -2768,6 +2796,19 @@ def build_dashboard(assets):
                       "Primary driver: KOPN Apr 22 TAKE stop (-$20.54) converted to MAYBE (smaller allocation, smaller loss). "
                       "Apr 6 and Apr 10 also improved from newly-discovered backfill TAKE failures.",
         },
+        75: {"reason": "Tested across 23 live days (test_gap_conviction_maybe.py) and a 38-day chronological backfill rerun "
+                       "(test_gap_conviction_chrono.py). The per-day test showed +$351.32 / +$15.27/day — but that result was "
+                       "misleading: the per-day reader the wallet from the ORIGINAL exercises.json each day, so cross-day "
+                       "compounding effects never carried forward. "
+                       "The proper chronological rerun (38 backfill days, save=True with patched logic) showed -$316.70 net, "
+                       "-$8.33/day. Same structural failure as gate #36 (1-bar ORB confirmation) and the take-profit ladder: "
+                       "the filter cancels MAYBE entries that ride momentum to TIME_CLOSE winners on clean days. "
+                       "Apr 2 alone lost -$132 (orig +$154.83 vs patched +$22.67), Mar 23 lost -$70, Mar 10 lost -$73 "
+                       "— the strategy's biggest winning days are exactly the ones the filter blunts. "
+                       "BULL-day carveout tested (test_gap_conviction_bull_carveout.py): -$66 worse than no carveout; "
+                       "the problem days (e.g. May 13 -$77) are NEUT, not BULL, so the carveout doesn't help. "
+                       "Same first-order-test caveat that bit gate #36 in April.",
+             "date": "May 13, 2026"},
         71: {
             "what":   "Block TAKE-rated ORB entries at or after 11:00 in ex1.py (and ex2.py)",
             "date":   "May 6, 2026",
