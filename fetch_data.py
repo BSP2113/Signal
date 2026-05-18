@@ -621,6 +621,20 @@ PER_DAY_GROWTH = {
             "On a bearish day, exactly one ORB cleared the SPY relative-strength gate across all 17 tickers: SHOP, breaking out at 10:30 \u2014 roughly 46 minutes after the 9:30\u20139:44 opening range, well past a typical early ORB. Despite the late entry it had ample runway, climbing to +2.00% by 14:00. The single qualifying setup shared a precise profile: 2.0x volume, +1.0% gap, late but clean breakout. The selectivity of the BEAR + relative-strength filter produced one trade and it was a winner, suggesting the surviving-signal profile (high volume + positive gap) is itself predictive in BEAR conditions and that late ORB entries are not inherently low-runway. Test: in BEAR market, gate ORB/GAP_GO entries to require volume \u22651.5x AND gap \u2265+0.5%, and remove the No-Progress 90-minute exit for BEAR ORB entries that fire after 10:15 (SHOP's 10:30 entry would have hit the No-Progress check at 12:00), then backtest BEAR-day win rate and average P&L against the current ruleset."
         )
     ],
+    "2026-05-18": [
+        (
+            "Gap-down ORB MAYBE longs went 0/3 (COIN -$12.63, SHOP -$2.86, UPST -$16.15)",
+            "Every ORB trade today was a MAYBE long on a ticker that had gapped DOWN from prior close: COIN -3.1% (entry 09:54 $193.29 \u2192 STOP_LOSS 10:23, -1.52%, -$12.63), SHOP -1.1% (entry 09:59 $101.58 \u2192 EARLY_WEAK 10:44, -0.30%, -$2.86), and UPST -1.6% (entry 10:09 $29.37 \u2192 STOP_LOSS 10:32, -1.67%, -$16.15). All three lost, combining for -$31.64. These were opening-range breakouts on stocks already in the red for the day \u2014 buying a bounce against the gap that never held. The dominant-trend protection rule only measures price vs today's OPEN, so a stock that gapped down but is flat-to-up off its own open is never flagged as counter-trend even though it is structurally weak relative to prior close. The 2.0\u20132.1x volume on each was just enough to clear the MAYBE floor without any quality edge. Test: extend dominant-trend protection to treat a prior-close gap-down of \u22651.5% as a bearish bias and block ORB MAYBE longs on those names (TAKE-only on gap-down \u22651.5% tickers)."
+        ),
+        (
+            "ASTS GAP_GO +6.4% gap exhaustion: -$43.53 in one bar (09:31\u219209:32)",
+            "ASTS gapped +6.4% on 5.3x volume and scored GAP_GO TAKE \u2014 the only TAKE of the day and the largest position. It entered at 09:31 $89.09 (the first bar after open) and was stopped out one minute later at 09:32 $87.25 for -2.07%, a -$43.53 loss that alone accounted for 58% of the day's -$75.17. A 6.4% gap with 5.3x volume entering on the very first close above the opening bar high is textbook gap exhaustion: the move was already extended and reversed before a second bar could confirm. The current GAP_GO logic fires on the first qualifying close in 09:30\u201309:39 with no hold requirement, so an instant fade is taken at full TAKE size. Test: for GAP_GO on gaps \u22655%, require two consecutive 1-minute closes above the opening bar's high before entry (confirmation bar) instead of entering on the first close."
+        ),
+        (
+            "Stop-loss slippage: ASTS realized -2.07% and UPST -1.67% vs the 1.5% stop",
+            "Three of four trades exited via STOP_LOSS, and two blew well past the -1.5% stop level because exits only trigger on a 1-minute CLOSE below the stop: ASTS realized -2.07% ($89.09\u2192$87.25) and UPST realized -1.67% ($29.37\u2192$28.88), with only COIN landing near spec at -1.52%. On a fast reversal like ASTS the bar opened/traded through the stop and closed at -2.07%, so the close-confirmation rule cost roughly an extra 0.5\u20130.6% (~$12\u201313 of additional loss across ASTS and UPST beyond a clean -1.5% fill). The stop is defined as 1.5% but is effectively a 'close beyond 1.5%' rule, which systematically gives back more than the risk budget on volatile names. Test: change STOP_LOSS to trigger intrabar \u2014 fire the moment a bar's LOW reaches the -1.5%-from-entry price (fill at that level) rather than waiting for a 1-minute close below it."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -652,6 +666,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-13": [None, None, None],
     "2026-05-14": [None, None, None],
     "2026-05-15": [None, None, None],
+    "2026-05-18": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -752,6 +767,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "Late PM_ORB entries got chopped at 14:00 \u2014 entry time predicted return almost perfectly",
             "Four of five PM_ORBs exited via the 14:00 TIME_CLOSE, and return tracked entry time almost monotonically: UPST 12:48 \u2192 +3.17% (hit target, 32 min runway), DELL 13:16 \u2192 +1.57%, META 13:04 \u2192 +0.79%, SHOP #2 13:19 \u2192 +0.37%, PLTR 13:30 \u2192 +0.39%. The two latest entries (SHOP 13:19, PLTR exactly at the 13:30 window cutoff) had only 30\u201341 minutes before the hard 14:00 close and barely cleared breakeven, while DELL and META were still green and rising when the clock cut them off. The fixed 14:00 TIME_CLOSE, inherited from morning ORB, structurally compresses hold time for any PM_ORB entered after ~13:15 and likely leaves trend on the table on strong afternoons. Test: give PM_ORB entries a minimum hold of entry + 75 minutes, capped at a 15:30 hard close (matching the afternoon-breakout exit), instead of the shared 14:00 TIME_CLOSE; backtest net P&L vs. the current rule across the PM_ORB history, including down days, to confirm it doesn't just give back gains in chop."
+        )
+    ],
+    "2026-05-18": [
+        (
+            "PM_ORB DKNG was the only EX2-extra win but chased an extended move",
+            "Every dollar of EX2's extra-signal contribution today came from one trade: DKNG #2 PM_ORB, TAKE 2.0x vol, entry 12:55 $25.80 \u2192 14:00 TIME_CLOSE $25.96, +$25.81 (+0.62%). Re-entries and afternoon breakouts both fired zero. The PM_ORB worked because it re-confirmed the day's single strongest trender \u2014 DKNG #1 morning ORB was still open and green (+2.16%, +$30.02) at the moment PM_ORB triggered, so the breakout above the 9:30\u201311:30 morning high was a genuine trend continuation, not a fresh guess. But note the entry quality gap: the morning position rode from $25.41 while PM_ORB entered at $25.80, capturing only +0.62% versus the morning's +2.16% on the same ticker. PM_ORB is most valuable precisely when it confirms an already-winning name, yet it currently allocates the same regardless of whether the ticker is already proving itself. Test: when a PM_ORB fires on a ticker that currently has an open position with PnL > 0, boost PM_ORB allocation by +25% (confirmed-trend add); when the same ticker's morning position already exited red, cut PM_ORB allocation by 50%."
+        ),
+        (
+            "EX2 held two concurrent DKNG positions \u2014 uncontrolled single-ticker concentration",
+            "At 12:55 EX2 was simultaneously long DKNG via the morning ORB (DKNG #1, open until 14:00) and the PM_ORB (DKNG #2). Combined, DKNG carried roughly double the intended single-name exposure for over an hour. It paid off today (+$30.02 and +$25.81, both exiting at 14:00 $25.96), but the outcome is the only thing that made this acceptable \u2014 if DKNG had rolled over after 12:55, EX2 would have compounded a loss on one ticker while EX1 carried just the single morning position. This is exactly the kind of concentration the extra-signal layer can silently create, since PM_ORB has no awareness of existing exposure. EX1 cannot do this; it is a pure EX2-extra risk. Test: before entering a PM_ORB (or afternoon breakout) on a ticker that already has an open position, cap the new entry so total concurrent allocation to that single ticker does not exceed 1.0x a normal TAKE; scale the PM_ORB size down to fit under the cap rather than skipping it."
+        ),
+        (
+            "PM_ORB at 12:55 had only 65 minutes of runway before the 14:00 hard close",
+            "DKNG #2 PM_ORB entered 12:55 and was forced out at the 14:00 TIME_CLOSE \u2014 a 65-minute hold. It never approached the +3% take-profit and never armed the trailing stop; it simply drifted from $25.80 to $25.96 and got cut by the clock at +0.62%. PM_ORB inherits the morning ORB's 14:00 time close, which makes sense for a 9:45 entry but starves any PM_ORB that fires in the back half of its 12:44\u201313:30 window. The trade was correct directionally and the ticker kept the trend, but the structure capped the reward at a fraction of what a full afternoon would have allowed (afternoon breakouts already get a 15:30 close for this exact reason). Today that truncation cost the difference between +0.62% and whatever DKNG did into the close. Test: change PM_ORB's time close from 14:00 to 15:30 (matching the afternoon-breakout window), keeping all other ORB exits \u2014 take-profit, trailing stop, stop loss \u2014 unchanged."
         )
     ],
 }
