@@ -621,6 +621,20 @@ PER_DAY_GROWTH = {
             "On a bearish day, exactly one ORB cleared the SPY relative-strength gate across all 17 tickers: SHOP, breaking out at 10:30 \u2014 roughly 46 minutes after the 9:30\u20139:44 opening range, well past a typical early ORB. Despite the late entry it had ample runway, climbing to +2.00% by 14:00. The single qualifying setup shared a precise profile: 2.0x volume, +1.0% gap, late but clean breakout. The selectivity of the BEAR + relative-strength filter produced one trade and it was a winner, suggesting the surviving-signal profile (high volume + positive gap) is itself predictive in BEAR conditions and that late ORB entries are not inherently low-runway. Test: in BEAR market, gate ORB/GAP_GO entries to require volume \u22651.5x AND gap \u2265+0.5%, and remove the No-Progress 90-minute exit for BEAR ORB entries that fire after 10:15 (SHOP's 10:30 entry would have hit the No-Progress check at 12:00), then backtest BEAR-day win rate and average P&L against the current ruleset."
         )
     ],
+    "2026-05-19": [
+        (
+            "DELL and SNDK late PM_ORB entries both EARLY_WEAK — compressed time window guarantees T+45 fires near close",
+            "DELL entered at 13:13 ($238.54) and exited EARLY_WEAK at 13:58 (-$5.21, -0.45%); SNDK entered at 13:11 ($1,375.11) and exited EARLY_WEAK at 13:56 (-$0.75, -0.11%). With the PM_ORB window closing at 13:30 and the TIME_CLOSE hard exit at 14:00, any entry after 13:10 has less than 50 minutes of runway — meaning EARLY_WEAK at T+45 fires at 13:55–13:58, essentially a guaranteed weak-exit for any trade that doesn't move immediately. DELL had vol_ratio 2.0 and atr_modifier 1.231 (the day's largest allocation at $1,160) but never had time to develop. These late entries are structurally disadvantaged, not signal failures. Test: block all PM_ORB entries at or after 13:10, or require vol_ratio ≥2.5x for entries in the 13:10–13:30 window to compensate for the compressed time budget."
+        ),
+        (
+            "CRDO rated MAYBE at vol_ratio 2.1 despite meeting PM_ORB TAKE threshold — choppiness penalty likely suppressed correct rating",
+            "CRDO fired PM_ORB at 12:47 ($165.90) with vol_ratio 2.1 — above the ≥2.0x TAKE threshold — yet was rated MAYBE, receiving $639.22 allocation instead of ~$960. It hit TAKE_PROFIT at 13:21 (+$20.07, +3.14%), the session's only TAKE_PROFIT exit. At TAKE allocation the gain would have been approximately $30, leaving roughly $10 uncaptured. The most likely cause is a choppiness -1 penalty overriding the volume +1, producing a net score below TAKE. PM_ORB fires after a full morning session, making pre-noon choppiness a poor predictor of post-lunch breakout quality — the signal is structurally different from morning ORB. Test: for PM_ORB signals only, raise the direction-flip threshold from 3 to 5 flips before applying the choppiness -1 penalty (or remove choppiness from PM_ORB scoring entirely) and compare TAKE rating accuracy versus outcomes over 30 days."
+        ),
+        (
+            "ARM TIME_CLOSE at +$13.22 (+1.46%) — trending PM_ORB winner cut off 1.54% short of TAKE_PROFIT by 14:00 hard exit",
+            "ARM entered PM_ORB at 12:55 ($222.50) and was still climbing at 14:00, exiting TIME_CLOSE at $225.75 (+$13.22, +1.46%, vol_ratio 1.9). The trailing stop arms after +1% (which ARM reached) but never triggered a -2% pullback from peak — meaning the position was healthy and trending at exit time. ARM was 1.54% short of the +3% TAKE_PROFIT target with no sign of reversal; UPST similarly hit +1.0% at TIME_CLOSE (+$9.40). The 14:00 hard exit is structurally truncating the session's strongest PM_ORB trades before they can reach TAKE_PROFIT. Test: for EX2 PM_ORB entries made at or before 13:00 that are ≥1.0% green at 13:30 with no trailing stop triggered, extend the hard time-close from 14:00 to 14:30 (keeping all stop and trail exits active) and measure incremental P&L vs forced 14:00 exits across a 30-day backtest."
+        ),
+    ],
     "2026-05-18": [
         (
             "Gap-down ORB MAYBE longs went 0/3 (COIN -$12.63, SHOP -$2.86, UPST -$16.15)",
@@ -667,6 +681,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-14": [None, None, None],
     "2026-05-15": [None, None, None],
     "2026-05-18": [None, None, None],
+    "2026-05-19": [None, None, None],  # note 1 → late PM_ORB entry cutoff | note 2 → PM_ORB choppiness penalty review | note 3 → PM_ORB time-close extension for winners
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
