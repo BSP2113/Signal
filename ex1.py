@@ -72,6 +72,9 @@ SPY_BULL       =  0.004   # premarket gap > +0.4% = bullish (matches market_chec
 SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
 SPY_GAP_ORB_MAYBE_SKIP = -0.3  # % — skip ORB MAYBE entries when SPY pre-mkt gap <= this (0/9 historical, see Shipped #74)
+ORB_MAYBE_EARLY_CUTOFF = "09:50"  # skip ORB MAYBE entries before this time — immediate
+                                  # breakouts are coin-flips (shipped 2026-05-15: EX1
+                                  # win 54.4%→62.7%, +$296 P&L over 23-day re-run)
 ALLOC_PCT_BULL = {"TAKE": 0.50, "MAYBE": 0.20}
 ALLOC_PCT_NEUT = {"TAKE": 0.45, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
@@ -574,6 +577,14 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
                     skipped.append(f"{ticker}#{trade_num}(orb-maybe-spy-gap-{spy_gap_pct:+.2f}%)")
                     continue
 
+                # Immediate ORB MAYBE breakouts (before 09:50) are coin-flips —
+                # 16W/24L near-breakeven historically; blocking them lifts EX1
+                # win rate 54.4%→62.7% with +$296 P&L (shipped 2026-05-15).
+                if (entry["signal"] == "ORB" and entry["rating"] == "MAYBE"
+                        and entry["time"] < ORB_MAYBE_EARLY_CUTOFF):
+                    skipped.append(f"{ticker}#{trade_num}(orb-maybe-early)")
+                    continue
+
                 alloc = round(spy_alloc(entry["rating"]) * modifier, 2)
                 if in_streak and entry["rating"] == "MAYBE":
                     alloc = round(alloc * MAYBE_STREAK_CUT, 2)
@@ -604,42 +615,11 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
                     "atr_modifier": modifier,
                 })
 
-        # PM_ORB — always check, independent of morning signal
-        if ticker == "KOPN":
-            pm = None
-        else:
-            pm = find_pm_orb(closes, volumes, times, ticker=ticker, spy_by_time=spy_by_time)
-        if pm:
-            pm_entry, pm_exit = pm
-            pm_alloc = round(spy_alloc(pm_entry["rating"]) * modifier, 2)
-            if in_streak and pm_entry["rating"] == "MAYBE":
-                pm_alloc = round(pm_alloc * MAYBE_STREAK_CUT, 2)
-            if in_drawdown:
-                pm_alloc = round(pm_alloc * DRAWDOWN_CUT, 2)
-            pm_pnl     = round((pm_exit["price"] - pm_entry["price"]) / pm_entry["price"] * pm_alloc, 2)
-            pm_pnl_pct = round((pm_exit["price"] - pm_entry["price"]) / pm_entry["price"] * 100, 2)
-            print(f"    PM_ORB signal: {pm_entry['time']} {pm_entry['rating']} {pm_entry['vol_ratio']}x")
-            potential.append({
-                "ticker":      ticker,
-                "trade_num":   len(ticker_trades) + 1,
-                "action":      "BUY",
-                "signal":      "PM_ORB",
-                "time":        pm_entry["time"],
-                "exit_time":   pm_exit["time"],
-                "entry":       pm_entry["price"],
-                "exit":        pm_exit["price"],
-                "exit_reason": pm_exit["reason"],
-                "eod":         eod_prices[ticker],
-                "allocated":   pm_alloc,
-                "spy_state":   market_state,
-                "units":       round(pm_alloc / pm_entry["price"], 4),
-                "pnl":         pm_pnl,
-                "pnl_pct":     pm_pnl_pct,
-                "rating":      pm_entry["rating"],
-                "vol_ratio":   pm_entry["vol_ratio"],
-                "gap_pct":     round(gap_pct * 100, 2),
-                "atr_modifier": modifier,
-            })
+        # PM_ORB removed from EX1 (2026-05-15). PM_ORB is an EX2-only afternoon
+        # signal — the live EX1 cash account never trades it (buying with
+        # unsettled morning proceeds = good-faith violation), so including it
+        # here inflated the EX1 record vs. live. EX1 = ORB + GAP_GO only.
+        # PM_ORB still runs in ex2.py.
 
     # --- Phase 2: simulate chronologically so concurrent positions share the same capital ---
     # Sort by entry time so earlier entries get first claim on capital
@@ -730,14 +710,20 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
         "in_drawdown":   in_drawdown,
     }
 
-    if not entries:
-        print(f"\n  No trades — skipping save.")
-        return exercise
-
     if not save:
         return exercise
 
     filename = result_file or ("backfill.json" if backfill else "exercises.json")
+
+    if not entries:
+        # Flat (no-trade) days are recorded in the live daily record so the
+        # graduation day-count reflects every market day. They are skipped for
+        # backfill.json / custom result files, where a $0 P&L would otherwise
+        # reset the loss-streak calculation and weaken position-cutting.
+        if filename != "exercises.json":
+            print(f"\n  No trades — skipping save ({filename} keeps streak logic intact).")
+            return exercise
+        print(f"\n  No trades — recording flat $0 day.")
     path     = os.path.join(BASE_DIR, filename)
     existing = []
     if os.path.exists(path):

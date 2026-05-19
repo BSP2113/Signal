@@ -4297,6 +4297,22 @@
     "in_drawdown": false
   },
   {
+    "title": "Exercise 1 - Multi-trade",
+    "date": "2026-04-28",
+    "starting_capital": 5618.9,
+    "trades": [],
+    "total_trades": 0,
+    "total_pnl": 0,
+    "total_pnl_pct": 0.0,
+    "portfolio_eod": 5618.9,
+    "market_state": "bearish",
+    "tight_state": "bearish",
+    "spy_gap_pct": -0.589,
+    "vixy_trend_pct": -3.2,
+    "loss_streak": 1,
+    "in_drawdown": false
+  },
+  {
     "title": "Exercise 2 - Re-entry",
     "date": "2026-04-28",
     "starting_capital": 5560.91,
@@ -9810,6 +9826,22 @@
     "spy_gap_pct": 0.258,
     "vixy_trend_pct": 0.899,
     "loss_streak": 0,
+    "in_drawdown": false
+  },
+  {
+    "title": "Exercise 1 - Multi-trade",
+    "date": "2026-05-19",
+    "starting_capital": 6153.36,
+    "trades": [],
+    "total_trades": 0,
+    "total_pnl": 0,
+    "total_pnl_pct": 0.0,
+    "portfolio_eod": 6153.36,
+    "market_state": "neutral",
+    "tight_state": "neutral",
+    "spy_gap_pct": -0.456,
+    "vixy_trend_pct": -2.301,
+    "loss_streak": 1,
     "in_drawdown": false
   },
   {
