@@ -798,6 +798,20 @@ PER_DAY_GROWTH_EX2 = {
             "DKNG #2 PM_ORB entered 12:55 and was forced out at the 14:00 TIME_CLOSE \u2014 a 65-minute hold. It never approached the +3% take-profit and never armed the trailing stop; it simply drifted from $25.80 to $25.96 and got cut by the clock at +0.62%. PM_ORB inherits the morning ORB's 14:00 time close, which makes sense for a 9:45 entry but starves any PM_ORB that fires in the back half of its 12:44\u201313:30 window. The trade was correct directionally and the ticker kept the trend, but the structure capped the reward at a fraction of what a full afternoon would have allowed (afternoon breakouts already get a 15:30 close for this exact reason). Today that truncation cost the difference between +0.62% and whatever DKNG did into the close. Test: change PM_ORB's time close from 14:00 to 15:30 (matching the afternoon-breakout window), keeping all other ORB exits \u2014 take-profit, trailing stop, stop loss \u2014 unchanged."
         )
     ],
+    "2026-05-20": [
+        (
+            "PM_ORB net +$13.67 but TSLA late entry burned 32 min",
+            "PM_ORB layer contributed +$13.67 today via SMCI ($+16.28, +1.41% in 71 min) and TSLA ($-2.61, -0.14% in 32 min). SMCI fired at 12:49 with 2.0x volume and had a full 71 minutes to work to TIME_CLOSE \u2014 clean MAYBE that paid. TSLA fired at 13:28 with strong 4.4x volume but only had 32 minutes until 14:00 TIME_CLOSE, leaving zero room for a +3% TAKE_PROFIT or even a meaningful trend to develop. Pattern: PM_ORB entries after 13:15 are racing the clock against a 14:00 exit, and 32 minutes is not enough runway for a $413 stock to move 3%. Test: For PM_ORB, tighten cutoff from 13:30 to 13:15 \u2014 any PM_ORB firing after 13:15 with under 45 min to TIME_CLOSE gets blocked or downgraded to SKIP unless score is TAKE with 2.5x+ vol."
+        ),
+        (
+            "Both PM_ORBs were MAYBE \u2014 no TAKE-grade PM_ORB all day",
+            "Both PM_ORB signals today scored MAYBE (SMCI 2.0x vol, TSLA 4.4x vol) \u2014 neither hit TAKE. SMCI's 2.0x is exactly at the PM_ORB TAKE threshold floor, and TSLA's 4.4x vol was high but choppiness or trend protection likely held it to MAYBE. Net PM_ORB contribution was +$13.67 \u2014 positive, but small relative to the morning ORB/GAP_GO layer that delivered +$232.18. Allocation sizing on MAYBE PM_ORBs is already conservative, but if MAYBE PM_ORBs continue netting in the $10\u201320 range while consuming capital and attention, the layer may not be justifying itself on bull days where EX1's morning entries already capture the move. Test: Track 30-day PM_ORB net P&L split by TAKE vs MAYBE grade \u2014 if MAYBE PM_ORBs net under +$50 cumulative over 30 days, raise MAYBE PM_ORB volume floor from 2.0x to 2.5x to gate out marginal setups."
+        ),
+        (
+            "Zero re-entries despite two trailing-stop exits \u2014 gate may be too strict",
+            "Two EX2 base trades exited via TRAILING_STOP before 13:30 (CRDO at 10:25, ASTS at 12:47) \u2014 both eligible windows for a re-entry under EX2 rules, yet neither produced a re-entry signal. CRDO had 3+ hours after its 10:25 exit for a new ORB to fire; ASTS exited at 12:47 leaving a 43-min window. Neither triggered a fresh qualifying ORB, which suggests either (a) the 5-bar cooldown plus new-ORB requirement is correctly filtering out chop, or (b) the re-entry gate is so strict it never fires on bull days where morning ORBs already captured the breakout. With EX2 re-entries net slightly negative over 12 days, the gate may already be in the right place \u2014 but a zero-fire day on a bull session is worth flagging. Test: Log re-entry *candidates* (tickers that exited via STOP/TRAIL before 13:30) even when no re-entry fires, so we can measure how often the gate blocks vs how often there's simply no new signal \u2014 required to know whether to loosen or tighten the rule."
+        )
+    ],
 }
 
 # Per-day Claude's Notes for Exercise 3 (hybrid routing analysis)
