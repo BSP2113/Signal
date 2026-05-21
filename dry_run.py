@@ -453,6 +453,9 @@ def run_dry_run(date: str, verbose: bool = False):
     live_ex1.STATE_FILE = os.path.join(BASE_DIR, "dry_state.json")
     if os.path.exists(live_ex1.STATE_FILE):
         os.remove(live_ex1.STATE_FILE)
+    # Mirror what live_ex1.session_setup() computes: streak / drawdown gates
+    # against exercises.json (the same source the live runner reads on cron).
+    streak = ex1.loss_streak_count(date, filename="exercises.json")
     live_ex1.state = {
         "session_date":    date,
         "market_state":    market_state,
@@ -461,7 +464,14 @@ def run_dry_run(date: str, verbose: bool = False):
         "session_pnl":     0.0,
         "halted":          False,
         "completed_trades": [],
+        "paper_seed":      None,
+        "in_streak":       streak >= ex1.STREAK_TRIGGER,
+        "in_drawdown":     ex1.drawdown_check(date, filename="exercises.json"),
     }
+    if live_ex1.state["in_streak"]:
+        print(f"  loss-streak active ({streak} losing days) — MAYBE × {ex1.MAYBE_STREAK_CUT}")
+    if live_ex1.state["in_drawdown"]:
+        print(f"  drawdown active — ALL × {ex1.DRAWDOWN_CUT}")
     live_ex1.save_state()
 
     # ── Replay loop ──

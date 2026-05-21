@@ -76,6 +76,10 @@ state = {
     "paper_seed":      None,             # initial broker AvailableFunds at first paper session;
                                          # used so paper sizing compounds: starting_cash = BUDGET
                                          # + (broker.settled_cash() - paper_seed). None until set.
+    "in_streak":       False,            # ≥2 consecutive prior losing days (from backfill.json)
+                                         # → MAYBE allocation × MAYBE_STREAK_CUT (0.5)
+    "in_drawdown":     False,            # portfolio >1.5% below rolling 5-day peak
+                                         # → ALL allocations × DRAWDOWN_CUT (0.5)
 }
 
 
@@ -228,7 +232,14 @@ def fetch_prior_close(client, ticker: str) -> Optional[float]:
 
 # ── Allocation ────────────────────────────────────────────────────────────────
 def calc_allocation(rating: str, market_state: str, atr_modifier: float = 1.0) -> float:
-    """Mirror of ex1's allocation math. Uses LIVE account starting cash."""
+    """Mirror of ex1's allocation math. Uses LIVE account starting cash.
+
+    Applies the same loss-streak and drawdown cuts as ex1.run_ex1:
+      • If state['in_streak'] (≥2 consecutive losing days in backfill.json):
+        MAYBE allocations × MAYBE_STREAK_CUT (0.5)
+      • If state['in_drawdown'] (portfolio >1.5% below 5-day peak):
+        ALL allocations × DRAWDOWN_CUT (0.5)
+    Both flags are populated once per session in session_setup()."""
     bal = state["starting_cash"]
     if market_state == "bullish":
         pct = ex1.ALLOC_PCT_BULL[rating]
@@ -236,8 +247,12 @@ def calc_allocation(rating: str, market_state: str, atr_modifier: float = 1.0) -
         pct = ex1.ALLOC_PCT_BEAR[rating]
     else:
         pct = ex1.ALLOC_PCT_NEUT[rating]
-    base = round(bal * pct, 2)
-    return round(base * atr_modifier, 2)
+    alloc = round(bal * pct * atr_modifier, 2)
+    if state.get("in_streak") and rating == "MAYBE":
+        alloc = round(alloc * ex1.MAYBE_STREAK_CUT, 2)
+    if state.get("in_drawdown"):
+        alloc = round(alloc * ex1.DRAWDOWN_CUT, 2)
+    return alloc
 
 
 # ── Entry handling ────────────────────────────────────────────────────────────
@@ -763,6 +778,22 @@ def session_setup():
       • Live: starting_cash = actual broker settled cash (naturally compounds
         because real cash IS the source of truth)."""
     state["market_state"] = read_market_state()
+
+    # Loss-streak and drawdown gates (mirror ex1.run_ex1). Read from
+    # exercises.json — same source that sim uses for its daily runs (not the
+    # backfill.json default). Computed once at session open and cached in
+    # state so calc_allocation can apply the cuts on every entry without
+    # re-reading the file. Same constants as sim (STREAK_TRIGGER=2,
+    # DRAWDOWN_CUT=0.5, MAYBE_STREAK_CUT=0.5).
+    today = datetime.now().strftime("%Y-%m-%d")
+    streak = ex1.loss_streak_count(today, filename="exercises.json")
+    state["in_streak"]   = streak >= ex1.STREAK_TRIGGER
+    state["in_drawdown"] = ex1.drawdown_check(today, filename="exercises.json")
+    if state["in_streak"]:
+        print(f"[session] loss-streak active ({streak} losing days) — MAYBE allocations × {ex1.MAYBE_STREAK_CUT}")
+    if state["in_drawdown"]:
+        print(f"[session] drawdown active — ALL allocations × {ex1.DRAWDOWN_CUT}")
+
     actual_cash = broker.settled_cash()
     if broker.IS_PAPER:
         # First-ever paper session: snapshot the broker baseline.
