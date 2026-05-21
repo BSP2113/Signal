@@ -73,6 +73,9 @@ state = {
     "session_pnl":     0.0,
     "halted":          False,            # daily loss limit tripped
     "completed_trades": [],
+    "paper_seed":      None,             # initial broker AvailableFunds at first paper session;
+                                         # used so paper sizing compounds: starting_cash = BUDGET
+                                         # + (broker.settled_cash() - paper_seed). None until set.
 }
 
 
@@ -82,7 +85,8 @@ def save_state():
 
 
 def load_state():
-    """Load state from disk if it exists AND matches today. Otherwise start fresh."""
+    """Load state from disk if it exists AND matches today. Otherwise start fresh,
+    but carry forward fields that span session boundaries (e.g. paper_seed)."""
     global state
     today = datetime.now().strftime("%Y-%m-%d")
     if os.path.exists(STATE_FILE):
@@ -93,8 +97,14 @@ def load_state():
             print(f"[state] resumed session for {today} "
                   f"({len(state['open_positions'])} open positions)")
             return
+        # New day: discard session-specific fields but persist paper_seed so
+        # paper sizing keeps compounding from the original broker baseline.
+        if saved.get("paper_seed") is not None:
+            state["paper_seed"] = saved["paper_seed"]
     state["session_date"] = today
-    print(f"[state] fresh session for {today}")
+    print(f"[state] fresh session for {today}"
+          + (f" (paper_seed=${state['paper_seed']:,.2f} carried forward)"
+             if state.get("paper_seed") is not None else ""))
 
 
 # ── Market state ──────────────────────────────────────────────────────────────
@@ -727,16 +737,31 @@ def in_entry_window() -> bool:
 def session_setup():
     """First-call-of-the-day initialization: read market state, snapshot starting cash.
 
-    Paper accounts come with $100K virtual cash and 2x margin buying power, but
-    we want position sizes that match the real $5K plan so paper Monday is a
-    faithful test of Tuesday's live behavior. Cap paper to ex1.BUDGET; live
-    uses actual settled cash (which compounds over time as P&L accrues)."""
+    Paper accounts come with ~$1M virtual cash, but we want position sizes that
+    track the real $5K plan so paper is a faithful test of live behavior. Two
+    branches:
+
+      • Paper: starting_cash = BUDGET + (broker.settled_cash() - paper_seed),
+        where paper_seed is snapshotted from broker on the very first paper
+        session and stored in live_state.json. This makes paper sizing seed
+        at $5K and then compound up/down with realized paper P&L — exactly
+        the trajectory a real $5K live account would follow.
+      • Live: starting_cash = actual broker settled cash (naturally compounds
+        because real cash IS the source of truth)."""
     state["market_state"] = read_market_state()
     actual_cash = broker.settled_cash()
     if broker.IS_PAPER:
-        state["starting_cash"] = min(actual_cash, ex1.BUDGET)
-        print(f"[session] paper account: capping sizing at ex1.BUDGET=${ex1.BUDGET:,.2f} "
-              f"(actual paper buying power: ${actual_cash:,.2f})")
+        # First-ever paper session: snapshot the broker baseline.
+        if state.get("paper_seed") is None:
+            state["paper_seed"] = actual_cash
+            print(f"[session] paper_seed initialised at ${actual_cash:,.2f} "
+                  f"(broker baseline; will be used to compute compounded sizing)")
+        compounded = ex1.BUDGET + (actual_cash - state["paper_seed"])
+        # Safety: never let paper sizing exceed actual broker balance, never below 0.
+        state["starting_cash"] = max(0.0, min(compounded, actual_cash))
+        print(f"[session] paper compounded sizing: ${state['starting_cash']:,.2f} "
+              f"(seed ${state['paper_seed']:,.2f}, broker now ${actual_cash:,.2f}, "
+              f"paper P&L since seed ${actual_cash - state['paper_seed']:+,.2f})")
     else:
         state["starting_cash"] = actual_cash
     save_state()
