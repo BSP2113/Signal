@@ -41,7 +41,17 @@ _HOST      = _cfg.get("IBKR_HOST", "127.0.0.1")
 _PORT      = int(_cfg.get("IBKR_PORT", "4002"))   # 4002 paper, 4001 live
 _CLIENT_ID = int(_cfg.get("IBKR_CLIENT_ID", "1"))
 _ACCOUNT   = _cfg.get("IBKR_ACCOUNT", "")          # blank = primary
-IS_PAPER   = _PORT == 4002
+# IS_PAPER gates live_ex1.py's $5K sizing cap (broker.IS_PAPER → cap to BUDGET).
+# Normally derived from port (4002=paper, 4001=live), but when Gateway sits behind
+# a socat / SSH bridge the port can be anything, so allow IBKR_PAPER in .env to
+# override explicitly. Only falls back to port-based detection when unset.
+_paper_env = _cfg.get("IBKR_PAPER", "").strip().lower()
+if _paper_env in ("1", "true", "yes", "on"):
+    IS_PAPER = True
+elif _paper_env in ("0", "false", "no", "off"):
+    IS_PAPER = False
+else:
+    IS_PAPER = _PORT == 4002
 
 
 # ── Client (lazy singleton, reconnects if dropped) ────────────────────────────
