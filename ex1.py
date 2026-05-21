@@ -411,8 +411,9 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
         symbol_or_symbols=TICKERS, timeframe=TimeFrame.Day,
         start=start_dt - timedelta(days=21), end=start_dt, feed="iex",
     ))
-    prior_closes = {}
-    atr_pcts     = {}
+    prior_closes  = {}
+    atr_pcts      = {}
+    prior_avg_vol = {}      # ticker → per-minute avg from the prior 5 trading days
     for t in TICKERS:
         bars = prior_daily.data.get(t, [])
         if bars:
@@ -420,6 +421,12 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
             val = calc_atr_pct(bars)
             if val:
                 atr_pcts[t] = val
+            # Mirror live_ex1._build_prior_avg_vols exactly: mean of past 5 daily
+            # volumes / 390 minutes-per-session. Eliminates the GAP_GO lookahead
+            # bias that came from using today's full-day mean as denominator.
+            recent = bars[-5:]
+            if recent:
+                prior_avg_vol[t] = (sum(b.volume for b in recent) / len(recent)) / 390
 
     # ATR modifier: scale each ticker's allocation by median_atr / ticker_atr, clamped
     if len(atr_pcts) >= 2:
@@ -553,7 +560,8 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
             print(f"    Gap filter: {ticker} opened {gap_pct*100:+.1f}% vs prior close — ORB skipped")
 
         ticker_trades = find_all_trades(closes, highs, lows, volumes, times, skip_orb,
-                                        spy_by_time=spy_by_time, gap_pct=gap_pct, ticker=ticker)
+                                        spy_by_time=spy_by_time, gap_pct=gap_pct, ticker=ticker,
+                                        avg_vol_override=prior_avg_vol.get(ticker))
 
         modifier = atr_modifier.get(ticker, 1.0)
 

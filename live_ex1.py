@@ -364,6 +364,15 @@ def check_for_signals(client, ticker_data: dict, spy_by_time: dict,
         if entry["time"] != latest_time:
             continue
 
+        # Mirror ex1.py's pre-09:50 ORB-MAYBE block (shipped to sim 2026-05-15:
+        # immediate breakouts are coin-flips, blocking them lifted sim EX1 win
+        # rate 54.4%→62.7% with +$296 over 23-day re-run). Until 2026-05-20 this
+        # gate existed only in sim; live was taking the trades sim skipped.
+        if (entry["signal"] == "ORB" and entry["rating"] == "MAYBE"
+                and entry["time"] < ex1.ORB_MAYBE_EARLY_CUTOFF):
+            print(f"[entry] {ticker} skipped — ORB MAYBE before {ex1.ORB_MAYBE_EARLY_CUTOFF} (early coin-flip filter)")
+            continue
+
         modifier = atr_modifier.get(ticker, 1.0)
         dollars  = calc_allocation(entry["rating"], state["market_state"], modifier)
 
