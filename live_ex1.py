@@ -246,12 +246,14 @@ def already_in(ticker: str) -> bool:
 
 
 def place_entry(ticker: str, signal: str, rating: str, entry_price: float,
-                dollars: float, signal_time: str | None = None):
+                dollars: float, signal_time: str | None = None,
+                vol_ratio: float | None = None):
     """Submit market buy + attach native stop-loss + (MAYBE only) take-profit.
 
     signal_time: the bar time when the signal fired (e.g. "09:31"). Used as the
     position's entry_time so T+45 / T+90 timing math is anchored to the signal,
-    not wall-clock. Falls back to wall clock if not provided."""
+    not wall-clock. Falls back to wall clock if not provided.
+    vol_ratio:   signal volume conviction (forwarded to Telegram alert only)."""
     bar_time = signal_time or datetime.now().strftime("%H:%M")
     print(f"[entry] {ticker} {signal} {rating} @ ${entry_price:.2f}  size=${dollars:.2f}  (bar {bar_time})")
 
@@ -313,7 +315,8 @@ def place_entry(ticker: str, signal: str, rating: str, entry_price: float,
         "exit_filed":   False,
     }
     save_state()
-    alerts.entry(ticker, signal, rating, actual_entry, dollars, stop_price, tp_price)
+    alerts.entry(ticker, signal, rating, actual_entry, dollars, stop_price, tp_price,
+                 time=bar_time, vol_ratio=vol_ratio)
 
 
 def check_for_signals(client, ticker_data: dict, spy_by_time: dict,
@@ -371,7 +374,7 @@ def check_for_signals(client, ticker_data: dict, spy_by_time: dict,
             continue
 
         place_entry(ticker, entry["signal"], entry["rating"], entry["price"], dollars,
-                    signal_time=entry["time"])
+                    signal_time=entry["time"], vol_ratio=entry.get("vol_ratio"))
 
 
 # ── Exit logic ────────────────────────────────────────────────────────────────
@@ -545,7 +548,8 @@ def execute_exit(ticker: str, reason: str, expected_price: float,
     print(f"[exit] {ticker} {reason}  ${pos['entry_price']:.2f}→${fill_price:.2f}  "
           f"P&L ${pnl_dollars:+.2f} ({pnl_pct:+.2f}%)")
     alerts.position_exit(ticker, reason, pos["entry_price"], fill_price,
-                         pnl_dollars, pnl_pct)
+                         pnl_dollars, pnl_pct,
+                         time=exit_time, session_pnl=state["session_pnl"])
 
 
 def check_exits(ticker_data: dict):
@@ -683,7 +687,8 @@ def _reconcile_broker_closed(ticker: str, bar_time: str | None = None):
     save_state()
     print(f"[exit] {ticker} {reason} (broker fill) P&L ${pnl_dollars:+.2f}")
     alerts.position_exit(ticker, reason, pos["entry_price"], fill_price,
-                         pnl_dollars, pnl_pct)
+                         pnl_dollars, pnl_pct,
+                         time=exit_time, session_pnl=state["session_pnl"])
 
 
 # ── Hard time-close at 14:00 ──────────────────────────────────────────────────

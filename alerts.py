@@ -72,11 +72,26 @@ def _send_raw(text: str, retry: int = 2) -> bool:
 
 # ── Formatted alert wrappers ──────────────────────────────────────────────────
 def entry(ticker: str, signal: str, rating: str, price: float, dollars: float,
-          stop_price: float, take_profit: float | None) -> bool:
-    """Order placed — entered a position."""
+          stop_price: float, take_profit: float | None,
+          *, time: str | None = None, vol_ratio: float | None = None) -> bool:
+    """Order placed — entered a position.
+
+    time:      bar-time of the signal (e.g. "09:32")
+    vol_ratio: signal's volume vs. recent average (e.g. 2.1 → "2.1x")
+
+    Note: `signal` and `rating` are wrapped in backticks because Telegram's
+    legacy Markdown treats unmatched `_` as an italic delimiter and rejects
+    the whole message — values like GAP_GO would otherwise trigger HTTP 400.
+    """
+    header_extras = []
+    if time:                  header_extras.append(f"@ `{time}`")
+    if vol_ratio is not None: header_extras.append(f"`{vol_ratio:.1f}x`")
+    header_extra = " · ".join(header_extras)
+    header_extra = f"  {header_extra}" if header_extra else ""
+
     tp_line = f"\nTP:    `${take_profit:.2f}`" if take_profit else ""
     msg = (
-        f"🟢 *ENTRY* `{ticker}` {signal} {rating}\n"
+        f"🟢 *ENTRY* `{ticker}` `{signal}` `{rating}`{header_extra}\n"
         f"Price: `${price:.2f}`  Size: `${dollars:,.2f}`\n"
         f"Stop:  `${stop_price:.2f}`{tp_line}"
     )
@@ -84,14 +99,27 @@ def entry(ticker: str, signal: str, rating: str, price: float, dollars: float,
 
 
 def position_exit(ticker: str, reason: str, entry_price: float, exit_price: float,
-                  pnl_dollars: float, pnl_pct: float) -> bool:
-    """Position closed — exit fired (stop / take-profit / trail / time-close / etc)."""
+                  pnl_dollars: float, pnl_pct: float,
+                  *, time: str | None = None, session_pnl: float | None = None) -> bool:
+    """Position closed — exit fired (stop / take-profit / trail / time-close / etc).
+
+    time:        bar-time / fill-time of the exit (e.g. "13:02")
+    session_pnl: running P&L for the day AFTER this exit was applied
+
+    Note: `reason` is wrapped in backticks (see entry() note re Markdown _).
+    """
     emoji = "✅" if pnl_dollars >= 0 else "❌"
     sign  = "+" if pnl_dollars >= 0 else ""
+    time_str = f" @ `{time}`" if time else ""
+    running = ""
+    if session_pnl is not None:
+        rsign = "+" if session_pnl >= 0 else ""
+        running = f"\nSession: `{rsign}${session_pnl:.2f}`"
     msg = (
-        f"{emoji} *EXIT* `{ticker}` ({reason})\n"
+        f"{emoji} *EXIT* `{ticker}` `{reason}`{time_str}\n"
         f"Entry: `${entry_price:.2f}` → Exit: `${exit_price:.2f}`\n"
         f"P&L:   `{sign}${pnl_dollars:.2f}` ({sign}{pnl_pct:.2f}%)"
+        f"{running}"
     )
     return _send_raw(msg)
 
