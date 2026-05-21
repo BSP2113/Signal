@@ -1,0 +1,59 @@
+{
+  "session_date": "2026-05-21",
+  "market_state": "neutral",
+  "starting_cash": 5000.0,
+  "open_positions": {},
+  "session_pnl": -12.69,
+  "halted": false,
+  "completed_trades": [
+    {
+      "ticker": "SHOP",
+      "signal": "ORB",
+      "rating": "TAKE",
+      "entry_time": "10:07",
+      "exit_time": "11:07",
+      "entry_price": 103.66348125,
+      "exit_price": 103.56,
+      "trigger_price": 103.64,
+      "give_back": 3.68,
+      "qty": 46.0,
+      "exit_reason": "EARLY_WEAK",
+      "pnl": -4.76,
+      "pnl_pct": -0.1
+    },
+    {
+      "ticker": "META",
+      "signal": "ORB",
+      "rating": "MAYBE",
+      "entry_time": "11:27",
+      "exit_time": "12:12",
+      "entry_price": 602.860003,
+      "exit_price": 601.21,
+      "trigger_price": 601.71,
+      "give_back": 0.5,
+      "qty": 1.0,
+      "exit_reason": "EARLY_WEAK",
+      "pnl": -1.65,
+      "pnl_pct": -0.27
+    },
+    {
+      "ticker": "PLTR",
+      "signal": "ORB",
+      "rating": "MAYBE",
+      "entry_time": "10:49",
+      "exit_time": "12:19",
+      "entry_price": 138.135003,
+      "exit_price": 137.35,
+      "trigger_price": 137.36,
+      "give_back": 0.08,
+      "qty": 8.0,
+      "exit_reason": "NO_PROGRESS",
+      "pnl": -6.28,
+      "pnl_pct": -0.57
+    }
+  ],
+  "paper_seed": 1000000.0,
+  "in_streak": false,
+  "in_drawdown": false,
+  "session_closed_alerted": true
+}
