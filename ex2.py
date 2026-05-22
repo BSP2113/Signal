@@ -252,9 +252,9 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None, time_close=Non
 
         if times[i] >= time_close:
             return {"bar": i, "time": times[i], "price": price, "reason": "TIME_CLOSE"}
-        # TAKE-rated trades skip the +3% hard cap and let the trail handle exit;
-        # MAYBE-rated keep the cap to protect lower-conviction wins.
-        if rating != "TAKE" and price >= entry_price * (1 + TAKE_PROFIT):
+        # +3% take-profit cap applies to ALL ratings. (TAKE no-cap reverted
+        # 2026-05-22 — re-validation showed it cost -$75 on the clean sim.)
+        if price >= entry_price * (1 + TAKE_PROFIT):
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
         trail_gated = (rating == "TAKE" and times[i] < TAKE_TRAIL_GATE)
         if trail_armed and not trail_gated and price <= peak * (1 - TRAIL_STOP):
@@ -290,12 +290,8 @@ def find_orb_entry(closes, volumes, times, spy_by_time, ticker=None):
             rating, vr = score_signal(closes[:i+1], volumes[i], avg_vol)
             if rating == "SKIP":
                 continue
-            # Pre-10:00 ORB TAKE signals are 0/9 wins across 53 days (-$154).
-            # Opening-range highs are set during the noisiest 15 min of the day;
-            # first breakouts before 10am are crowded fakeouts, not real momentum.
-            # MAYBE signals before 10:00 are unaffected (positive net across both datasets).
-            if rating == "TAKE" and times[i] < "10:00":
-                continue
+            # Pre-10:00 ORB-TAKE block reverted 2026-05-22 — re-validation on the
+            # lookahead-fixed + market-state-corrected sim found it a leak (-$32).
             if spy_by_time and day_open:
                 ticker_chg = (closes[i] - day_open) / day_open
                 spy_ts     = sorted(t for t in spy_by_time if t <= times[i])

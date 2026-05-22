@@ -272,9 +272,11 @@ def place_entry(ticker: str, signal: str, rating: str, entry_price: float,
     bar_time = signal_time or datetime.now().strftime("%H:%M")
     print(f"[entry] {ticker} {signal} {rating} @ ${entry_price:.2f}  size=${dollars:.2f}  (bar {bar_time})")
 
-    # 1. Market buy
+    # 1. Market buy — pass entry_price as price_hint so share count is computed
+    # from the fresh Alpaca signal price instead of an IBKR snapshot (IBKR Lite
+    # has no real-time data subscription and would return NaN).
     try:
-        order = broker.market_buy(ticker, dollars)
+        order = broker.market_buy(ticker, dollars, price_hint=entry_price)
     except Exception as e:
         msg = f"market_buy {ticker}: {e}"
         print(f"[entry] FAIL {msg}")
@@ -302,16 +304,15 @@ def place_entry(ticker: str, signal: str, rating: str, entry_price: float,
         print(f"[entry] FAIL {msg}")
         alerts.error("stop attach failed", msg)
 
-    # 4. Attach take-profit (+3%) for MAYBE only — TAKE rated trades have no cap
-    tp_price = None
-    if rating != "TAKE":
-        tp_price = round(actual_entry * (1 + ex1.TAKE_PROFIT), 2)
-        try:
-            broker.attach_take_profit(ticker, qty, tp_price)
-        except Exception as e:
-            msg = f"TP attach {ticker}: {e}"
-            print(f"[entry] FAIL {msg}")
-            alerts.error("TP attach failed", msg)
+    # 4. Attach take-profit (+3%) for ALL ratings. (TAKE no-cap reverted
+    # 2026-05-22 — re-validation showed it cost -$75 on the clean sim.)
+    tp_price = round(actual_entry * (1 + ex1.TAKE_PROFIT), 2)
+    try:
+        broker.attach_take_profit(ticker, qty, tp_price)
+    except Exception as e:
+        msg = f"TP attach {ticker}: {e}"
+        print(f"[entry] FAIL {msg}")
+        alerts.error("TP attach failed", msg)
 
     # 5. Record in state
     state["open_positions"][ticker] = {

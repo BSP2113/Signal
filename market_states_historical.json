@@ -363,5 +363,60 @@
     "date": "2026-05-06",
     "spy_gap_pct": 0.685,
     "vixy_trend_pct": -0.197
+  },
+  {
+    "date": "2026-05-07",
+    "spy_gap_pct": 0.155,
+    "vixy_trend_pct": -1.898
+  },
+  {
+    "date": "2026-05-08",
+    "spy_gap_pct": 0.446,
+    "vixy_trend_pct": -0.774
+  },
+  {
+    "date": "2026-05-11",
+    "spy_gap_pct": -0.187,
+    "vixy_trend_pct": 0.483
+  },
+  {
+    "date": "2026-05-12",
+    "spy_gap_pct": -0.318,
+    "vixy_trend_pct": 1.405
+  },
+  {
+    "date": "2026-05-13",
+    "spy_gap_pct": 0.016,
+    "vixy_trend_pct": -2.078
+  },
+  {
+    "date": "2026-05-14",
+    "spy_gap_pct": 0.296,
+    "vixy_trend_pct": 1.713
+  },
+  {
+    "date": "2026-05-15",
+    "spy_gap_pct": -1.043,
+    "vixy_trend_pct": -2.269
+  },
+  {
+    "date": "2026-05-18",
+    "spy_gap_pct": 0.258,
+    "vixy_trend_pct": 0.899
+  },
+  {
+    "date": "2026-05-19",
+    "spy_gap_pct": -0.512,
+    "vixy_trend_pct": -2.301
+  },
+  {
+    "date": "2026-05-20",
+    "spy_gap_pct": 0.412,
+    "vixy_trend_pct": 1.007
+  },
+  {
+    "date": "2026-05-21",
+    "spy_gap_pct": -0.386,
+    "vixy_trend_pct": -2.088
   }
 ]

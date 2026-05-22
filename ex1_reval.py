@@ -72,15 +72,26 @@ SPY_BULL       =  0.004   # premarket gap > +0.4% = bullish (matches market_chec
 SPY_BEAR       = -0.005   # premarket gap < -0.5% = bearish
 VIXY_SURGE     =  0.03    # VIXY up >3% = bearish weight
 SPY_GAP_ORB_MAYBE_SKIP = -0.3  # % — skip ORB MAYBE entries when SPY pre-mkt gap <= this (0/9 historical, see Shipped #74)
-ORB_MAYBE_EARLY_CUTOFF = "09:30"  # DISABLED 2026-05-22 — re-validation on the
-                                  # lookahead-fixed + market-state-corrected sim
-                                  # found this block cost -$159 (a stale-sim
-                                  # artifact). "09:30" = market open, so never skips.
+ORB_MAYBE_EARLY_CUTOFF = "09:50"  # skip ORB MAYBE entries before this time — immediate
+                                  # breakouts are coin-flips (shipped 2026-05-15: EX1
+                                  # win 54.4%→62.7%, +$296 P&L over 23-day re-run)
 ALLOC_PCT_BULL = {"TAKE": 0.50, "MAYBE": 0.20}
 ALLOC_PCT_NEUT = {"TAKE": 0.45, "MAYBE": 0.15}
 ALLOC_PCT_BEAR = {"TAKE": 0.10, "MAYBE": 0.10}
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ET          = "America/New_York"
+
+# Re-validation toggles (Phase B2). All True = shipped behaviour; the
+# re-validation driver flips one False at a time to measure each rule.
+REVAL_FLAGS = {
+    "confirm_bar":       True,
+    "two_bar_trail":     True,
+    "take_no_cap":       True,
+    "no_progress":       True,
+    "early_weak":        True,
+    "pre10_take_block":  True,
+    "post11_take_block": True,
+}
 
 
 def _load_creds():
@@ -205,7 +216,7 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None,
 
         # Large-gap confirm bar: if the bar right after entry closes in the lower
         # 40% of its high-low range, exit immediately — gap momentum has already failed.
-        if large_gap and i == entry_bar + 1 and highs and lows:
+        if REVAL_FLAGS["confirm_bar"] and large_gap and i == entry_bar + 1 and highs and lows:
             bar_range = highs[i] - lows[i]
             if bar_range > 0:
                 close_pos = (price - lows[i]) / bar_range
@@ -219,24 +230,24 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None,
             consec_above += 1
         else:
             consec_above = 0
-        if consec_above >= 2:
+        if consec_above >= (2 if REVAL_FLAGS["two_bar_trail"] else 1):
             trail_armed = True
 
         if times[i] >= ENTRY_CLOSE:
             return {"bar": i, "time": times[i], "price": price, "reason": "TIME_CLOSE"}
-        # +3% take-profit cap applies to ALL ratings. (TAKE no-cap reverted
-        # 2026-05-22 — re-validation showed it cost -$75 on the clean sim.)
-        if price >= entry_price * (1 + TAKE_PROFIT):
+        # TAKE-rated trades skip the +3% hard cap and let the trail handle exit;
+        # MAYBE-rated keep the cap to protect lower-conviction wins.
+        if ((rating != "TAKE") or not REVAL_FLAGS["take_no_cap"]) and price >= entry_price * (1 + TAKE_PROFIT):
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
         if trail_armed and price <= peak * (1 - TRAIL_STOP):
             return {"bar": i, "time": times[i], "price": price, "reason": "TRAILING_STOP"}
         if price <= entry_price * (1 - STOP_LOSS):
             return {"bar": i, "time": times[i], "price": price, "reason": "STOP_LOSS"}
-        if not t90_passed and bar_mins >= t90_mins and t90_mins <= 14 * 60:
+        if REVAL_FLAGS["no_progress"] and not t90_passed and bar_mins >= t90_mins and t90_mins <= 14 * 60:
             t90_passed = True
             if price <= entry_price:
                 return {"bar": i, "time": times[i], "price": price, "reason": "NO_PROGRESS"}
-        if ticker not in EARLY_WEAK_SKIP and not tew_passed and bar_mins >= tew_mins:
+        if REVAL_FLAGS["early_weak"] and ticker not in EARLY_WEAK_SKIP and not tew_passed and bar_mins >= tew_mins:
             tew_passed = True
             if price < entry_price:
                 lookback = max(entry_bar + 1, i - EARLY_WEAK_LOOKBACK)
@@ -352,10 +363,17 @@ def find_all_trades(closes, highs, lows, volumes, times, skip_orb=False, spy_by_
         if closes[i] > orb_high:
             rating, vr = score_signal(closes[:i+1], volumes[i], avg_vol)
             if rating != "SKIP":
-                # Pre-10:00 and post-11:00 ORB-TAKE blocks reverted 2026-05-22 —
-                # re-validation on the lookahead-fixed + market-state-corrected
-                # sim found both were leaks (-$32 and -$51); they had been tuned
-                # on the biased sim. TAKE entries now fire whenever ORB triggers.
+                # Pre-10:00 ORB TAKE signals are 0/9 wins across 53 days (-$154).
+                # Opening-range highs are set during the noisiest 15 min of the day;
+                # first breakouts before 10am are crowded fakeouts, not real momentum.
+                # MAYBE signals before 10:00 are unaffected (positive net across both datasets).
+                if REVAL_FLAGS["pre10_take_block"] and rating == "TAKE" and times[i] < "10:00":
+                    continue
+                # Post-11:00 ORB TAKE signals are 0W/3L across 55 days (-$24.03).
+                # By 11:00 the opening range momentum has dissipated; late TAKE breakouts
+                # lack the early-session directional conviction that makes ORB entries work.
+                if REVAL_FLAGS["post11_take_block"] and rating == "TAKE" and times[i] >= "11:00":
+                    continue
                 if spy_by_time and day_open:
                     ticker_chg = (closes[i] - day_open) / day_open
                     spy_times  = sorted(t for t in spy_by_time if t <= times[i])
@@ -442,7 +460,12 @@ def run_ex1(trade_date=None, backfill=False, save=True, result_file=None, title=
     spy_gap_pct   = 0.0
     vixy_trend_pct = 0.0
 
-    if os.path.exists(state_path):
+    # REVAL PATCH 2026-05-22: the live market_state.json holds whatever date the
+    # 9:20am cron last wrote; reading it for a re-run leaks that single day in
+    # and makes historical re-runs non-reproducible. Only consult it for a true
+    # same-day live run — every historical re-run uses the historical file.
+    _today = datetime.now().strftime("%Y-%m-%d")
+    if trade_date == _today and os.path.exists(state_path):
         with open(state_path) as f:
             ms = json.load(f)
         if ms.get("date") == trade_date:

@@ -13,6 +13,7 @@ margin account (shorting, leverage) are intentionally omitted.
 
 import os
 import math
+import time
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -53,6 +54,12 @@ elif _paper_env in ("0", "false", "no", "off"):
 else:
     IS_PAPER = _PORT == 4002
 
+# Reconnect behavior — see client(). A transient Gateway drop (peer-close, a
+# WireGuard blip, or the previous clientId not yet released after a restart)
+# usually clears within a few seconds, so retry before surfacing the error.
+_CONNECT_RETRIES    = 3
+_CONNECT_RETRY_WAIT = 3.0   # seconds between attempts
+
 
 # ── Client (lazy singleton, reconnects if dropped) ────────────────────────────
 _client: Optional[IB] = None
@@ -63,9 +70,25 @@ def client() -> IB:
     global _client
     with _client_lock:
         if _client is None or not _client.isConnected():
-            ib = IB()
-            ib.connect(_HOST, _PORT, clientId=_CLIENT_ID, timeout=15)
-            _client = ib
+            # Retry a few times before giving up: a momentary drop should not
+            # bubble up as a loop exception + Telegram alert, and on restart the
+            # Gateway may briefly still hold the old clientId.
+            last_err = None
+            for attempt in range(1, _CONNECT_RETRIES + 1):
+                try:
+                    ib = IB()
+                    ib.connect(_HOST, _PORT, clientId=_CLIENT_ID, timeout=15)
+                    _client = ib
+                    return _client
+                except Exception as e:
+                    last_err = e
+                    print(f"[broker] connect attempt {attempt}/{_CONNECT_RETRIES} "
+                          f"failed: {e!r}")
+                    if attempt < _CONNECT_RETRIES:
+                        time.sleep(_CONNECT_RETRY_WAIT)
+            raise ConnectionError(
+                f"broker.client: could not connect to IB Gateway at "
+                f"{_HOST}:{_PORT} after {_CONNECT_RETRIES} attempts") from last_err
         return _client
 
 
@@ -115,10 +138,58 @@ def account() -> Account:
     )
 
 
+def _settled_cash_today() -> Optional[float]:
+    """Cash that has fully settled as of today, from IBKR's SettledCashByDate.
+
+    IBKR reports it as 'YYYYMMDD:amount;YYYYMMDD:amount;...' — each pair is the
+    settled balance as of that settlement date. The pair for today (or the most
+    recent date that has already arrived) is the cash safe to spend now without
+    a good-faith violation. Returns None if IBKR did not report the field.
+    """
+    today = datetime.now().strftime("%Y%m%d")
+    vals = client().accountValues(_ACCOUNT) if _ACCOUNT else client().accountValues()
+    for v in vals:
+        if v.tag != "SettledCashByDate" or not v.value:
+            continue
+        pairs = {}
+        for chunk in v.value.split(";"):
+            if ":" in chunk:
+                d, amt = chunk.split(":", 1)
+                try:
+                    pairs[d.strip()] = float(amt)
+                except ValueError:
+                    pass
+        if not pairs:
+            return None
+        arrived = {d: a for d, a in pairs.items() if d <= today}
+        if arrived:
+            return arrived[max(arrived)]   # most recent settlement date reached
+        return min(pairs.values())         # all future-dated → conservative floor
+    return None
+
+
 def settled_cash() -> float:
-    """Cash actually available (T+1 settled in a cash account)."""
-    s = _summary()
-    return float(s.get("AvailableFunds", s.get("SettledCash", 0)))
+    """Cash genuinely available to spend without a good-faith violation.
+
+    Paper: AvailableFunds — paper is virtual $1M with no GFV enforcement, and
+    the paper_seed calibration was snapshotted against this field.
+
+    Live cash account: SettledCashByDate's today figure. AvailableFunds is
+    wrong here — it includes unsettled same-day sale proceeds, and buying with
+    those then selling same day is a good-faith violation (3 in 12 months →
+    90-day cash-settled-only lock). If IBKR does not report SettledCashByDate,
+    return 0.0 (blocks new entries) rather than silently risk a violation.
+    See GO_LIVE.md — this MUST be verified against the real cash account day one.
+    """
+    if IS_PAPER:
+        s = _summary()
+        return float(s.get("AvailableFunds", s.get("SettledCash", 0)))
+    settled = _settled_cash_today()
+    if settled is None:
+        print("[broker] WARNING: live account did not report SettledCashByDate — "
+              "cannot confirm settled cash; returning $0 to block entries (GFV-safe).")
+        return 0.0
+    return settled
 
 
 # ── Position helpers ──────────────────────────────────────────────────────────
@@ -163,23 +234,47 @@ def _stock(ticker: str) -> Stock:
     return c
 
 
-def _latest_price(ticker: str) -> float:
-    """Snapshot price for dollar→qty conversion. Falls back to last close."""
+def _latest_price(ticker: str, retries: int = 1, retry_wait: float = 1.5) -> float:
+    """Snapshot price for dollar→qty conversion. Falls back to last/close.
+
+    Each candidate (marketPrice, last, close) is independently validated for
+    NaN and non-positive values, because NaN is truthy in Python and would
+    otherwise slip through `or` chains and propagate into share-count math.
+
+    If the first call yields no valid price (IBKR data not yet populated for
+    this contract), retries up to `retries` more times with `retry_wait`s
+    between attempts.
+    """
     c = _stock(ticker)
-    [tk] = client().reqTickers(c)
-    price = tk.marketPrice()
-    if price != price or price <= 0:  # NaN
-        price = tk.last or tk.close or 0
-    if not price or price <= 0:
-        raise RuntimeError(f"_latest_price {ticker}: no price available")
-    return float(price)
+    attempts = retries + 1
+    for attempt in range(attempts):
+        [tk] = client().reqTickers(c)
+        for candidate in (tk.marketPrice(), tk.last, tk.close):
+            if candidate is None:
+                continue
+            try:
+                p = float(candidate)
+            except (TypeError, ValueError):
+                continue
+            if math.isnan(p) or p <= 0:
+                continue
+            return p
+        if attempt < attempts - 1:
+            print(f"[broker] _latest_price {ticker}: no price on attempt {attempt+1}/{attempts}, retrying in {retry_wait}s")
+            client().sleep(retry_wait)
+    raise RuntimeError(f"_latest_price {ticker}: no valid price after {attempts} attempts (market/last/close all NaN or <=0)")
 
 
-def market_buy(ticker: str, dollars: float) -> dict:
+def market_buy(ticker: str, dollars: float, price_hint: float | None = None) -> dict:
     """
     Submit a market BUY for approximately `dollars` worth of `ticker`.
     Whole shares only — qty = floor(dollars / latest_price). May leave a few
     dollars unspent vs Alpaca's exact-notional behavior.
+
+    price_hint: a known-fresh price (e.g. from the Alpaca signal bar) used to
+    compute share count. Avoids calling IBKR for a price snapshot, which
+    returns NaN on IBKR Lite without a paid market-data subscription. Falls
+    back to `_latest_price` only when no hint is given.
     """
     if dollars <= 0:
         raise ValueError(f"market_buy: dollars must be positive (got {dollars})")
@@ -188,7 +283,10 @@ def market_buy(ticker: str, dollars: float) -> dict:
         raise RuntimeError(f"market_buy {ticker}: ${dollars:.2f} requested but only "
                            f"${bp:.2f} buying power available")
 
-    price = _latest_price(ticker)
+    if price_hint is not None and not math.isnan(price_hint) and price_hint > 0:
+        price = float(price_hint)
+    else:
+        price = _latest_price(ticker)
     qty = math.floor(dollars / price)
     if qty < 1:
         raise RuntimeError(f"market_buy {ticker}: ${dollars:.2f} / ${price:.2f} = {qty} shares")
