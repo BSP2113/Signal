@@ -649,6 +649,20 @@ PER_DAY_GROWTH = {
             "Three of four trades exited via STOP_LOSS, and two blew well past the -1.5% stop level because exits only trigger on a 1-minute CLOSE below the stop: ASTS realized -2.07% ($89.09\u2192$87.25) and UPST realized -1.67% ($29.37\u2192$28.88), with only COIN landing near spec at -1.52%. On a fast reversal like ASTS the bar opened/traded through the stop and closed at -2.07%, so the close-confirmation rule cost roughly an extra 0.5\u20130.6% (~$12\u201313 of additional loss across ASTS and UPST beyond a clean -1.5% fill). The stop is defined as 1.5% but is effectively a 'close beyond 1.5%' rule, which systematically gives back more than the risk budget on volatile names. Test: change STOP_LOSS to trigger intrabar \u2014 fire the moment a bar's LOW reaches the -1.5%-from-entry price (fill at that level) rather than waiting for a 1-minute close below it."
         )
     ],
+    "2026-05-22": [
+        (
+            "AMD GAP_GO STOP_LOSS realized -2.40% vs -1.5% intended (-$79.72)",
+            "AMD's GAP_GO TAKE (6.3x vol) entered 09:31 at $479.18. The -1.5% stop level sits at $471.99, but the STOP_LOSS exit at 09:42 filled at $467.70 \u2014 a realized -2.40% loss, fully 0.9% ($4.29/share) past the intended stop. Because exits evaluate the 1-minute bar close, a single fast bar on a reversing large-gap stock blew straight through $471.99 before the model could act, turning a planned ~-$47 loss into the actual -$79.72. This slippage is structural to gap stocks, which cover a wide price range each minute. Test: For GAP_GO entries only, move the STOP_LOSS trigger to -1.0% from entry (vs -1.5%), so the ~0.9% per-bar slippage seen on AMD still lands the realized exit near the originally intended -1.5% rather than overshooting to -2.40%."
+        ),
+        (
+            "AMD +5.8% gap faded on entry \u2014 GAP_GO has no upper gap cap",
+            "AMD triggered GAP_GO on a +5.8% pre-market gap, nearly double the +3% trigger floor. Despite a 6.3x volume TAKE score, it reversed within 11 minutes (09:31 entry $479.18 \u2192 09:42 STOP_LOSS $467.70) for the day's only trade and a -$79.72 loss. GAP_GO currently scores a +3% gap and a +5.8% gap identically, but outsized gaps invite immediate profit-taking and mean-reversion \u2014 the breakout above the opening-bar high failed on the very next leg down. The signal had no mechanism to treat the size of the gap itself as a risk factor. Test: Add an upper gap cap to GAP_GO \u2014 when the pre-market gap exceeds +5%, downgrade the signal from TAKE to MAYBE so an outsized gap like AMD's +5.8% takes a smaller allocation instead of a full-size position."
+        ),
+        (
+            "AMD GAP_GO entered 09:31 on first qualifying bar, no follow-through",
+            "AMD's GAP_GO fired on the 09:31 bar \u2014 the second minute of the session and the earliest possible entry \u2014 the instant one bar closed above the opening-bar high. There was no confirmation the breakout would hold: the position never traded green, rolled over immediately, and hit STOP_LOSS at 09:42, just 11 minutes later. A single-bar breakout one minute into a +5.8% gap is precisely the move that gets sold into, and entering on the first qualifying close gave the trade zero margin for a failed breakout. Test: For GAP_GO, require one confirmation bar \u2014 enter only after a second consecutive 1-minute close above the opening-bar high \u2014 instead of entering on the first qualifying close; AMD would have been filtered out as the 09:32+ bars failed to confirm and rolled over."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -682,6 +696,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-15": [None, None, None],
     "2026-05-18": [None, None, None],
     "2026-05-19": [None, None, None],  # note 1 → late PM_ORB entry cutoff | note 2 → PM_ORB choppiness penalty review | note 3 → PM_ORB time-close extension for winners
+    "2026-05-22": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
