@@ -53,7 +53,8 @@ ENTRY_CLOSE = "14:00"
 TAKE_PROFIT = 0.03
 TRAIL_STOP  = 0.020
 TRAIL_LOCK  = 0.01
-STOP_LOSS   = 0.015
+STOP_LOSS   = 0.015   # kept at 1.5% — the 2.0% stop-sweep win was EX1-only;
+                      # on EX2 the wider stop cost -$55 (re-entry/realloc cascade)
 NO_PROGRESS_MINS    = 90   # exit flat/negative positions this many minutes after entry
 EARLY_WEAK_MINS     = 45   # cut failing trades 45 min after entry
 EARLY_WEAK_LOOKBACK = 5    # bars back to confirm still moving down

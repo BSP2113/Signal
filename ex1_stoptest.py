@@ -41,8 +41,7 @@ ENTRY_CLOSE = "14:00"
 TAKE_PROFIT = 0.03
 TRAIL_STOP  = 0.020
 TRAIL_LOCK  = 0.01
-STOP_LOSS   = 0.020   # widened 1.5%->2.0% 2026-05-22 — stop-variant sweep:
-                      # -1.5% whipsawed on the open; -2.0% +$44/57d, WR 50->52%
+STOP_LOSS   = 0.015
 DAY_LOSS_LIMIT = -75.0
 GAP_FILTER          = 0.04   # skip ORB if ticker gaps >4% vs prior close
 GAP_GO_THRESH       = 0.03   # positive gap >= 3% qualifies for gap-and-go
@@ -188,6 +187,26 @@ def score_signal(closes_so_far, vol, avg_volume):
     else:            return "SKIP",  vol_ratio
 
 
+# ── Stop-loss variant config (stop-test harness only) ─────────────────────────
+# STOP_CFG is overridden by research_2026-05/stop_sweep.py. The default value
+# reproduces the shipped fixed -1.5% stop exactly.
+STOP_CFG = {"mode": "fixed", "pct": 0.015}
+
+
+def _stop_threshold(entry_price, mins_held):
+    """Stop price for the configured variant. mins_held = minutes since entry.
+
+    fixed  — entry_price * (1 - pct), constant.
+    graded — wider 'wide' pct while mins_held < 'grace', then tightens to 'pct'.
+             Targets the morning post-entry whipsaw: give the trade room to
+             breathe right after entry, tighten once it should have worked.
+    """
+    if STOP_CFG["mode"] == "graded":
+        pct = STOP_CFG["wide"] if mins_held < STOP_CFG["grace"] else STOP_CFG["pct"]
+        return entry_price * (1 - pct)
+    return entry_price * (1 - STOP_CFG["pct"])
+
+
 def find_exit(closes, times, entry_price, entry_bar, ticker=None,
               highs=None, lows=None, large_gap=False, rating=None):
     peak         = entry_price
@@ -231,7 +250,7 @@ def find_exit(closes, times, entry_price, entry_bar, ticker=None,
             return {"bar": i, "time": times[i], "price": price, "reason": "TAKE_PROFIT"}
         if trail_armed and price <= peak * (1 - TRAIL_STOP):
             return {"bar": i, "time": times[i], "price": price, "reason": "TRAILING_STOP"}
-        if price <= entry_price * (1 - STOP_LOSS):
+        if price <= _stop_threshold(entry_price, bar_mins - entry_mins):
             return {"bar": i, "time": times[i], "price": price, "reason": "STOP_LOSS"}
         if not t90_passed and bar_mins >= t90_mins and t90_mins <= 14 * 60:
             t90_passed = True
