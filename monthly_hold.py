@@ -31,9 +31,17 @@ STATE_PATH = os.path.join(SIGNAL_DIR, "monthly_state.json")
 MIN_BUY_CASH = 50.0     # below this per position, don't try to buy
 
 # Deploy gate: bot is a strict no-op before this date. Lets the cron be in
-# place during the run-up without trading anything until the planned go-live.
-# Set 2026-05-22 — first live action on 2026-06-01 (first June trading day).
-ACTIVE_AFTER = "2026-06-01"
+# place during the run-up without trading anything until the planned start.
+# Set 2026-05-22 -> first PAPER action 2026-05-26 (Tue, day after Memorial
+# Day). This validates the full state-machine cycle on paper before any real
+# money:
+#   Tue May 26: liquidate any leftover positions, AWAITING_SETTLEMENT.
+#   Wed May 27: buy May's 15 picks @ ~$333 each (paper).
+#   Mon Jun  1: detect new month, liquidate May's positions.
+#   Tue Jun  2: buy June's 15 picks.
+# Switch to LIVE later via /home/ben/ibkr/GO_LIVE.md (VPS-side change) — no
+# script change needed; broker.py picks up the real account credentials.
+ACTIVE_AFTER = "2026-05-26"
 
 now       = datetime.now()
 cur_month = now.strftime("%Y-%m")
