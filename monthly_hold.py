@@ -127,14 +127,14 @@ if state.get("month") != cur_month and state.get("phase") not in (
             failed.append(p.ticker)
     _save_state({"month": cur_month, "phase": "AWAITING_SETTLEMENT",
                  "liquidated_on": today, "prev_holdings": [p.ticker for p in open_pos]})
-    msg = (f"📅 monthly_hold {cur_month}: rebalance phase 1\n"
+    msg = (f"[MonthlyHold] {cur_month} rebalance — phase 1 (sell)\n"
            f"Sold {len(sold)}/{len(open_pos)} positions"
            + (f": {', '.join(sold)}" if sold else "")
            + (f"\nFAILED: {', '.join(failed)}" if failed else "")
            + f"\nNext: T+1 cash settlement, buy tomorrow ({len(target)} picks).")
     alerts.info(msg)
     if failed:
-        alerts.error("monthly_hold sells failed", ", ".join(failed))
+        alerts.error("[MonthlyHold] sells failed", ", ".join(failed))
     print("[monthly_hold] liquidation done — wait for T+1 settlement, buy next run", flush=True)
     sys.exit(0)
 
@@ -161,7 +161,7 @@ if state.get("phase") in ("AWAITING_SETTLEMENT", "INITIAL"):
     _save_state({"month": cur_month, "phase": "IDLE_HOLDING",
                  "bought_on": today, "holdings": bought, "failed": failed,
                  "per_position": round(per_pos, 2)})
-    msg = (f"📅 monthly_hold {cur_month}: rebalance phase 2 — IN POSITION\n"
+    msg = (f"[MonthlyHold] {cur_month} rebalance — phase 2 (buy) — IN POSITION\n"
            f"Bought {len(bought)}/{len(target)} positions @ ~${per_pos:,.0f} each "
            f"(cash ${cash:,.0f}):\n"
            f"{', '.join(bought)}"
@@ -169,7 +169,7 @@ if state.get("phase") in ("AWAITING_SETTLEMENT", "INITIAL"):
            + f"\nHolding until {cur_month} end-of-month rebalance.")
     alerts.info(msg)
     if failed:
-        alerts.error("monthly_hold buys failed", ", ".join(failed))
+        alerts.error("[MonthlyHold] buys failed", ", ".join(failed))
     print(f"[monthly_hold] bought {len(bought)}/{len(target)} positions for {cur_month}", flush=True)
     sys.exit(0)
 
