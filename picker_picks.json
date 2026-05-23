@@ -1,0 +1,29 @@
+{
+  "month": "2026-05",
+  "as_of": "2026-05-22",
+  "generated": "2026-05-22 19:44:26",
+  "n_picks": 15,
+  "scorer_weights": {
+    "gap": 0.3,
+    "orb": 0.35,
+    "momentum": 0.35
+  },
+  "universe_size": 514,
+  "tickers": [
+    "ZS",
+    "DXCM",
+    "DDOG",
+    "DECK",
+    "MRVL",
+    "HPE",
+    "FTNT",
+    "NOW",
+    "GEN",
+    "CCL",
+    "IBM",
+    "F",
+    "WSM",
+    "PANW",
+    "TPR"
+  ]
+}

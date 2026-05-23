@@ -51,6 +51,15 @@ BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ET          = "America/New_York"
 STATE_FILE  = os.path.join(BASE_DIR, "live_state.json")
 TRADES_FILE = os.path.join(BASE_DIR, "trades_live.json")
+PICKS_FILE  = os.path.join(BASE_DIR, "picker_picks.json")
+
+# Picker integration (2026-05-22): the static 17-ticker list was overfit on
+# out-of-sample testing; the dynamic monthly picker is the validated path
+# (+$0.88/trade OOS vs the static list's -$0.90/tr). When USE_PICKER is True
+# AND picker_picks.json is current-month, live_ex1 uses the picker's tickers
+# instead of ex1.TICKERS. Generate the file via monthly_pick.py (cron
+# suggested: 0 5 * * 1-5). Set USE_PICKER=False to force the static list.
+USE_PICKER  = True
 
 # How often to poll for new bars during the session (seconds).
 POLL_SECONDS = 30
@@ -821,6 +830,29 @@ def main():
     print(f"Signal Reader Live — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Broker: {'PAPER' if broker.IS_PAPER else 'LIVE'}")
     print("="*60)
+
+    # --- Picker integration --------------------------------------------------
+    # If USE_PICKER and picker_picks.json is current-month, override
+    # ex1.TICKERS with the picker's picks (and clear TICKER_START gates so
+    # picked names always trade). Falls back to the static ex1.TICKERS silently
+    # if disabled, missing, stale, or unreadable — so this is always safe.
+    if USE_PICKER and os.path.exists(PICKS_FILE):
+        try:
+            _p = json.load(open(PICKS_FILE))
+            _cur_mo = datetime.now().strftime("%Y-%m")
+            if _p.get("month") == _cur_mo and _p.get("tickers"):
+                ex1.TICKERS = list(_p["tickers"])
+                ex1.TICKER_START = {}
+                print(f"[picker] using picker_picks.json: {len(ex1.TICKERS)} tickers "
+                      f"(as of {_p.get('as_of')}, generated {_p.get('generated')})")
+            else:
+                print(f"[picker] picker_picks.json stale "
+                      f"(month={_p.get('month')!r} ≠ {_cur_mo!r}) — using static TICKERS")
+        except Exception as e:
+            print(f"[picker] picker_picks.json read failed ({e!r}) — using static TICKERS")
+    else:
+        why = "USE_PICKER=False" if not USE_PICKER else "no picker_picks.json"
+        print(f"[picker] disabled ({why}) — using static TICKERS")
 
     load_state()
     if state["starting_cash"] == 0.0:
