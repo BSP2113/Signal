@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 SIGNAL_DIR = "/home/ben/Signal"
 sys.path.insert(0, SIGNAL_DIR)
 import broker
+import alerts
 
 PICKS_PATH = os.path.join(SIGNAL_DIR, "picker_picks.json")
 STATE_PATH = os.path.join(SIGNAL_DIR, "monthly_state.json")
@@ -107,14 +108,25 @@ if state.get("month") != cur_month and state.get("phase") not in (
     open_pos = broker.all_positions()
     print(f"[monthly_hold] new month {cur_month} detected — "
           f"{len(open_pos)} positions to liquidate", flush=True)
+    sold, failed = [], []
     for p in open_pos:
         try:
             broker.market_sell_position(p.ticker)
             print(f"  SELL {p.ticker}  qty={p.qty}", flush=True)
+            sold.append(p.ticker)
         except Exception as e:
             print(f"  FAIL sell {p.ticker}: {e!r}", flush=True)
+            failed.append(p.ticker)
     _save_state({"month": cur_month, "phase": "AWAITING_SETTLEMENT",
                  "liquidated_on": today, "prev_holdings": [p.ticker for p in open_pos]})
+    msg = (f"📅 monthly_hold {cur_month}: rebalance phase 1\n"
+           f"Sold {len(sold)}/{len(open_pos)} positions"
+           + (f": {', '.join(sold)}" if sold else "")
+           + (f"\nFAILED: {', '.join(failed)}" if failed else "")
+           + f"\nNext: T+1 cash settlement, buy tomorrow ({len(target)} picks).")
+    alerts.info(msg)
+    if failed:
+        alerts.error("monthly_hold sells failed", ", ".join(failed))
     print("[monthly_hold] liquidation done — wait for T+1 settlement, buy next run", flush=True)
     sys.exit(0)
 
@@ -141,6 +153,15 @@ if state.get("phase") in ("AWAITING_SETTLEMENT", "INITIAL"):
     _save_state({"month": cur_month, "phase": "IDLE_HOLDING",
                  "bought_on": today, "holdings": bought, "failed": failed,
                  "per_position": round(per_pos, 2)})
+    msg = (f"📅 monthly_hold {cur_month}: rebalance phase 2 — IN POSITION\n"
+           f"Bought {len(bought)}/{len(target)} positions @ ~${per_pos:,.0f} each "
+           f"(cash ${cash:,.0f}):\n"
+           f"{', '.join(bought)}"
+           + (f"\nFAILED: {', '.join(failed)}" if failed else "")
+           + f"\nHolding until {cur_month} end-of-month rebalance.")
+    alerts.info(msg)
+    if failed:
+        alerts.error("monthly_hold buys failed", ", ".join(failed))
     print(f"[monthly_hold] bought {len(bought)}/{len(target)} positions for {cur_month}", flush=True)
     sys.exit(0)
 
