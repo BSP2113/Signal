@@ -29,10 +29,19 @@ PICKS_PATH = os.path.join(SIGNAL_DIR, "picker_picks.json")
 STATE_PATH = os.path.join(SIGNAL_DIR, "monthly_state.json")
 MIN_BUY_CASH = 50.0     # below this per position, don't try to buy
 
+# Deploy gate: bot is a strict no-op before this date. Lets the cron be in
+# place during the run-up without trading anything until the planned go-live.
+# Set 2026-05-22 — first live action on 2026-06-01 (first June trading day).
+ACTIVE_AFTER = "2026-06-01"
+
 now       = datetime.now()
 cur_month = now.strftime("%Y-%m")
 today     = now.strftime("%Y-%m-%d")
 print(f"[monthly_hold] {now.strftime('%Y-%m-%d %H:%M:%S')}  PAPER={broker.IS_PAPER}", flush=True)
+
+if today < ACTIVE_AFTER:
+    print(f"[monthly_hold] today {today} < ACTIVE_AFTER {ACTIVE_AFTER} — deploy gate closed, no-op", flush=True)
+    sys.exit(0)
 
 
 def _load_picks():
