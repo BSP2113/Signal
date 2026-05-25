@@ -663,6 +663,20 @@ PER_DAY_GROWTH = {
             "AMD's GAP_GO fired on the 09:31 bar \u2014 the second minute of the session and the earliest possible entry \u2014 the instant one bar closed above the opening-bar high. There was no confirmation the breakout would hold: the position never traded green, rolled over immediately, and hit STOP_LOSS at 09:42, just 11 minutes later. A single-bar breakout one minute into a +5.8% gap is precisely the move that gets sold into, and entering on the first qualifying close gave the trade zero margin for a failed breakout. Test: For GAP_GO, require one confirmation bar \u2014 enter only after a second consecutive 1-minute close above the opening-bar high \u2014 instead of entering on the first qualifying close; AMD would have been filtered out as the 09:32+ bars failed to confirm and rolled over."
         )
     ],
+    "2026-05-25": [
+        (
+            "No EX1 trades on 2026-05-25 \u2014 Memorial Day holiday, no data to analyze",
+            "The session shows zero EX1 trades and $+0.00 P&L because 2026-05-25 is Memorial Day (US markets closed). There are no ORB/GAP_GO fires, no exits, and no tickers to reference from this date. Any specific-ticker analysis would be fabricated. The honest growth op here is procedural: the daily-close pipeline should not request 3 trade-traceable growth ops on holidays \u2014 it produces pressure to invent observations. Test: in `fetch_data.py` / `ex1.py`, check the NYSE calendar (or a hardcoded US market-holiday list including Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas, New Year's, MLK Day, Presidents Day, Good Friday, Juneteenth) before triggering growth-op generation; on holidays, write a single placeholder entry `(\"Market closed\", \"NYSE holiday \u2014 no session\")` to `PER_DAY_GROWTH` instead of three fabricated bullets."
+        ),
+        (
+            "Holiday gate missing in market_check.py \u2014 NEUTRAL classification written for closed market",
+            "`market_state.json` shows NEUTRAL for 2026-05-25 even though the market never opened. `market_check.py` ran at 09:20 and classified the day off SPY pre-market gap / VIXY trend without checking whether a session would actually occur. This is harmless today (no signals fired because no bars existed) but it pollutes `market_states_historical.json` with a regime label that has no trades behind it, biasing future analytics that bucket performance by BULL/NEUT/BEAR. Test: add a holiday short-circuit at the top of `market_check.py` \u2014 if today is in the NYSE holiday list, write `{\"state\": \"CLOSED\", \"reason\": \"holiday\"}` and exit before pulling SPY/VIXY; update `market_states_historical.json` writers to skip CLOSED days so regime stats stay clean."
+        ),
+        (
+            "Cron fires ex1.py on holidays \u2014 wasted compute and a 4pm push with empty results",
+            "Per CLAUDE.md the cron fires `ex1.py` at 09:30 and pushes at 16:00 automatically. On Memorial Day that means a full fetch loop, an `ex1.py` run that finds no bars, and a 4pm Telegram/push notification reporting $0 / 0 trades \u2014 noise that trains me to ignore the daily summary on real low-activity days. No ticker fired today not because gates were too tight but because the exchange was closed; the system has no awareness of that distinction. Test: wrap the 09:30 cron in a holiday guard (e.g. `pandas_market_calendars` `NYSE.valid_days` check, or a static `MARKET_HOLIDAYS` set in `ex1.py`) \u2014 if today is closed, log `\"skipped: market holiday\"` to `exercises.json` notes and suppress the 4pm push entirely so non-trading days are visually distinct from zero-signal trading days."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -697,6 +711,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-18": [None, None, None],
     "2026-05-19": [None, None, None],  # note 1 → late PM_ORB entry cutoff | note 2 → PM_ORB choppiness penalty review | note 3 → PM_ORB time-close extension for winners
     "2026-05-22": [None, None, None],
+    "2026-05-25": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)

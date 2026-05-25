@@ -11838,5 +11838,21 @@
     "vixy_trend_pct": -2.862,
     "loss_streak": 0,
     "in_drawdown": false
+  },
+  {
+    "title": "Exercise 1 - Multi-trade",
+    "date": "2026-05-25",
+    "starting_capital": 6574.96,
+    "trades": [],
+    "total_trades": 0,
+    "total_pnl": 0,
+    "total_pnl_pct": 0.0,
+    "portfolio_eod": 6574.96,
+    "market_state": "neutral",
+    "tight_state": "neutral",
+    "spy_gap_pct": 0.0,
+    "vixy_trend_pct": 0.712,
+    "loss_streak": 1,
+    "in_drawdown": false
   }
 ]
