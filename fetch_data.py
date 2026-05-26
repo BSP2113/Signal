@@ -856,6 +856,20 @@ PER_DAY_GROWTH_EX2 = {
             "ARM (GAP_GO, +7.05% to TIME_CLOSE) and IONQ (GAP_GO, +3.13% to TAKE_PROFIT) both succeeded on first entry with no STOP_LOSS or TRAIL exits, so the re-entry layer had nothing to act on \u2014 by design. This is the right outcome: re-entries should only fire when a stopped-out ticker re-qualifies, and on a clean-winner day the layer correctly stays dormant. The 12-day re-entry record remains net slightly negative going into the 30-day review, but today neither helped nor hurt that ledger. Worth noting: IONQ's TAKE_PROFIT at 09:46 freed capital that could theoretically have funded a later re-entry if IONQ had given a second ORB-qualifying push, but the GAP_GO re-entry exclusion (current rule) blocked it. Test: at the 30-day re-entry review, separately evaluate whether GAP_GO tickers that hit TAKE_PROFIT before 11:00 and then form a fresh ORB-qualifying breakout should become re-entry eligible (currently excluded) \u2014 backtest the carve-out across the 30-day sample."
         )
     ],
+    "2026-05-26": [
+        (
+            "PM_ORB layer carried EX2 today (+$17.86 vs EX1)",
+            "All 4 PM_ORB signals fired and 3 of 4 finished green: SMCI #2 (+$7.08), IONQ #1 (+$7.81), KOPN #2 (+$5.60 trailing stop), only AMD #1 fizzled at -$2.63 on TIME_CLOSE. The three winners share a profile \u2014 MAYBE rating, modest volume (1.5\u20132.0x PM avg, KOPN's 4.2x the outlier), all entered 12:48\u201313:01 in the first 15 minutes of the PM window. AMD entered latest at 13:06 with the weakest volume (1.7x) and was the only loser. The PM_ORB layer alone closed two-thirds of the EX2-vs-EX1 gap ($+63.64 total) without a single STOP_LOSS, validating the morning-high reference switch from May 6. Test: in the PM_ORB scorer, give a +1 score bonus to entries before 13:00 and a -1 to entries after 13:05; require \u22652.0x PM avg volume for any entry triggering at/after 13:05, otherwise SKIP."
+        ),
+        (
+            "Re-entry layer contributed zero on a 5-loss EX1 day",
+            "EX1 took 4 STOP_LOSS/EARLY_WEAK exits today (UPST, COIN, DELL, plus TSLA NO_PROGRESS) \u2014 exactly the setup where re-entries are supposed to help recover. Yet zero re-entry signals fired. UPST stopped out at 09:43 down 2.13%, DELL at 10:29 down 1.72%, COIN early-weak at 10:34 \u2014 none of them produced a fresh qualifying ORB before 13:30. This is the second consecutive observation that the re-entry rule (5-bar cooldown + new ORB break) is too narrow to trigger on the days it's needed most: stop-outs rarely re-break their own opening range in the same session. The re-entry layer is currently dead weight. Test: relax the re-entry trigger to allow a 'recovery entry' if price reclaims the original entry price + 0.3% on volume \u22651.5x avg, even without a fresh ORB high break; cap allocation at 50% of original (down from 75%) to limit downside on whipsaws."
+        ),
+        (
+            "REALLOC at 11:13 freed budget for a losing TSLA TAKE",
+            "Three MAYBE positions (SHOP +0.14%, PLTR +0.42%, SMCI -0.74%) all exited via REALLOC at 11:13 to fund TSLA #1 \u2014 a TAKE-rated ORB at 1.8x volume. TSLA then bled out 90 minutes to a -$11.42 NO_PROGRESS exit. Net trade: closed +$2.30 of small gains (SHOP+PLTR-SMCI) to fund a -$11.42 loss = -$9.12 swing from the REALLOC chain. The reallocation rule sold the *worst* open (SMCI -0.74%) but also dumped two green positions to reach the TAKE budget. Worse, the TAKE itself was a mediocre 1.8x volume entry on a gap of only +1.3% \u2014 barely clearing the TAKE threshold. The reallocation logic is sacrificing certain small gains for uncertain TAKE outcomes. Test: require the incoming TAKE to have \u22652.5x volume OR gap \u22652.0% before triggering REALLOC; if the TAKE doesn't clear that bar, let the existing positions ride and skip the new entry."
+        )
+    ],
 }
 
 # Per-day Claude's Notes for Exercise 3 (hybrid routing analysis)
