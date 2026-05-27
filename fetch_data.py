@@ -677,6 +677,20 @@ PER_DAY_GROWTH = {
             "Per CLAUDE.md the cron fires `ex1.py` at 09:30 and pushes at 16:00 automatically. On Memorial Day that means a full fetch loop, an `ex1.py` run that finds no bars, and a 4pm Telegram/push notification reporting $0 / 0 trades \u2014 noise that trains me to ignore the daily summary on real low-activity days. No ticker fired today not because gates were too tight but because the exchange was closed; the system has no awareness of that distinction. Test: wrap the 09:30 cron in a holiday guard (e.g. `pandas_market_calendars` `NYSE.valid_days` check, or a static `MARKET_HOLIDAYS` set in `ex1.py`) \u2014 if today is closed, log `\"skipped: market holiday\"` to `exercises.json` notes and suppress the 4pm push entirely so non-trading days are visually distinct from zero-signal trading days."
         )
     ],
+    "2026-05-27": [
+        (
+            "ASTS TAKE +0.07% trailing stop fired immediately at $124.75\u2192$124.84",
+            "ASTS triggered TAKE rating (1.5x vol) at 10:54 entry $124.75, but trailing stop closed it just 27 minutes later at $124.84 for a measly +$0.71 (+0.07%). The trailing stop activates after +1% peak, so price must have barely tagged the +1% threshold ($126.00) before falling back 2%. Late-morning TAKE entries (after 10:30) have less runway to the 14:00 time close, and a tight 2% trail on a barely-triggered position locks in noise rather than letting the trend develop. Test: for TAKE entries firing after 10:45, require trailing stop activation threshold to rise from +1% to +1.5% peak before the trail arms, giving late entries more room to develop before the trail kicks in."
+        ),
+        (
+            "NO_PROGRESS exits on TSLA -$4.52 and META -$1.37 both at -0.66% and -0.19%",
+            "TSLA entered 10:51 at $444.38 and exited 12:21 at $441.43 via NO_PROGRESS (-0.66%); META entered 10:19 at $614.72 and exited 11:49 at $613.57 via NO_PROGRESS (-0.19%). Both were already underwater at the 90-min check and dumped at market \u2014 but the cumulative -$5.89 from these two represented 86% of the day's net P&L being eroded by a single rule firing on positions only marginally below entry. NO_PROGRESS treats -0.05% the same as -1.5% with no nuance. Test: require NO_PROGRESS exit to fire only if position is at least -0.3% below entry at the 90-min mark; positions sitting flat (-0.0% to -0.3%) get a 30-min extension before forced exit."
+        ),
+        (
+            "KOPN TAKE_PROFIT capped at +3.06% in 13 minutes \u2014 only winner over +1%",
+            "KOPN entered 09:51 at $5.55 on a MAYBE 1.9x vol signal and hit TAKE_PROFIT at 10:04 ($5.72) for +$7.59 (+3.06%) in just 13 minutes. This was the only trade of the day that cleared +1% and was force-exited at exactly +3% \u2014 yet KOPN's low-priced volatility (ATR modifier ~0.57\u20130.77x) frequently extends well past 3% intraday on momentum bars. Capping the lone breakout winner at +3% on a day where 6 of 9 trades closed near flat or red is leaving meaningful gains on the table. Test: for sub-$10 tickers (KOPN), replace the fixed +3% TAKE_PROFIT with a +3% trailing-stop arm \u2014 once price hits +3%, switch to a 1.5% trail from peak instead of hard exit, letting the runner extend on high-momentum bars."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -712,6 +726,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-19": [None, None, None],  # note 1 → late PM_ORB entry cutoff | note 2 → PM_ORB choppiness penalty review | note 3 → PM_ORB time-close extension for winners
     "2026-05-22": [None, None, None],
     "2026-05-25": [None, None, None],
+    "2026-05-27": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -868,6 +883,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "REALLOC at 11:13 freed budget for a losing TSLA TAKE",
             "Three MAYBE positions (SHOP +0.14%, PLTR +0.42%, SMCI -0.74%) all exited via REALLOC at 11:13 to fund TSLA #1 \u2014 a TAKE-rated ORB at 1.8x volume. TSLA then bled out 90 minutes to a -$11.42 NO_PROGRESS exit. Net trade: closed +$2.30 of small gains (SHOP+PLTR-SMCI) to fund a -$11.42 loss = -$9.12 swing from the REALLOC chain. The reallocation rule sold the *worst* open (SMCI -0.74%) but also dumped two green positions to reach the TAKE budget. Worse, the TAKE itself was a mediocre 1.8x volume entry on a gap of only +1.3% \u2014 barely clearing the TAKE threshold. The reallocation logic is sacrificing certain small gains for uncertain TAKE outcomes. Test: require the incoming TAKE to have \u22652.5x volume OR gap \u22652.0% before triggering REALLOC; if the TAKE doesn't clear that bar, let the existing positions ride and skip the new entry."
+        )
+    ],
+    "2026-05-27": [
+        (
+            "PM_ORB MAYBE-only day netted -$4.22 on weak volume",
+            "Both PM_ORB signals fired as MAYBE rather than TAKE today: ASTS at 12:46 with 2.2x PM-window volume (entry $128.53 \u2192 TIME_CLOSE $128.54, +$0.06) and IONQ at 12:48 with just 1.3x volume (entry $65.71 \u2192 TRAILING_STOP $65.29, -$4.28). The IONQ PM_ORB is particularly notable because IONQ #1 already captured the day's clean move (TAKE_PROFIT +$20.66 at 12:02) \u2014 the PM_ORB was essentially a chase entry 46 minutes after the morning winner peaked, and it died within 25 minutes. The 1.3x volume on IONQ #2 barely cleared the 1.0x floor and was well below the 2.0x TAKE threshold, signaling no real conviction behind the breakout. Across both PM_ORBs, neither produced a meaningful winner \u2014 the layer cost EX2 $4.22 net for zero upside on a NEUT day. Test: block PM_ORB MAYBE signals (<2.0x PM-window volume) when the same ticker already had a TAKE_PROFIT exit earlier that session \u2014 backtest over last 45 days to confirm filter doesn't lose meaningful winners."
+        ),
+        (
+            "Zero re-entries fired despite 3 trailing-stop exits before 13:30",
+            "EX2 had three TRAILING_STOP exits today that occurred at or before the 13:30 re-entry cutoff: KOPN exited 10:20 ($5.54), PLTR exited 13:49 ($132.91 \u2014 past cutoff, ineligible), and SHOP exited 13:58 (past cutoff, ineligible). Only KOPN was actually in the re-entry window, and no new qualifying ORB signal fired after the 5-bar wait. This means the re-entry layer contributed exactly $0 today \u2014 neither helped nor hurt \u2014 but the structural issue is that PLTR and SHOP both exited via trailing stop right near the close after holding most of the session, meaning they never had a chance to re-enter regardless of setup quality. The current 13:30 cutoff makes re-entries irrelevant for any position that holds past lunch and trails out in the afternoon. Test: widen re-entry window to 14:30 for trailing-stop exits only (not stop-loss), since trailing stops indicate the ticker had upside that may resume \u2014 keep stop-loss re-entries at 13:30 cutoff since those signal genuine weakness."
+        ),
+        (
+            "EX2 extras contributed -$4.22 on a NEUT day where EX1 winners did the work",
+            "Today EX2 beat EX1 by $+6.87, but that delta came entirely from base ORB/GAP_GO trades sized or scored differently \u2014 not from the extra signals layer. The extras (re-entries + PM_ORB + afternoon breakouts) netted -$4.22 combined (PM_ORB only, since re-entries and afternoon breakouts were empty). On a NEUT day where IONQ #1 already delivered the TAKE_PROFIT win at 12:02 and DKNG #1 held +1.83% to time close, the PM_ORB layer effectively added noise without alpha \u2014 IONQ #2 chased the prior winner and ASTS #2 was a coin-flip that broke even. This continues the pattern of PM_ORB MAYBE entries being marginally negative on NEUT days. Test: require PM_ORB signals fire on tickers that did NOT already have a winning exit (TAKE_PROFIT) earlier in the session \u2014 if morning ORB on that ticker hit TP, suppress PM_ORB on the same ticker for the rest of the day. Backtest to quantify the avoided drag."
         )
     ],
 }
