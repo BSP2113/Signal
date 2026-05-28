@@ -691,6 +691,20 @@ PER_DAY_GROWTH = {
             "KOPN entered 09:51 at $5.55 on a MAYBE 1.9x vol signal and hit TAKE_PROFIT at 10:04 ($5.72) for +$7.59 (+3.06%) in just 13 minutes. This was the only trade of the day that cleared +1% and was force-exited at exactly +3% \u2014 yet KOPN's low-priced volatility (ATR modifier ~0.57\u20130.77x) frequently extends well past 3% intraday on momentum bars. Capping the lone breakout winner at +3% on a day where 6 of 9 trades closed near flat or red is leaving meaningful gains on the table. Test: for sub-$10 tickers (KOPN), replace the fixed +3% TAKE_PROFIT with a +3% trailing-stop arm \u2014 once price hits +3%, switch to a 1.5% trail from peak instead of hard exit, letting the runner extend on high-momentum bars."
         )
     ],
+    "2026-05-28": [
+        (
+            "Fast TAKE_PROFITs capped SNDK ($12.18 in 21 min) and ARM ($13.74 in 32 min)",
+            "SNDK entered 10:08 at $1620.18 and hit +3% TP by 10:29 \u2014 just 21 minutes later. ARM entered 09:48 at $321.54 and TP'd at 10:20 ($332.02) in 32 minutes. DELL GAP_GO took 2.5 hours (09:33\u219212:05) to reach +3.27%, but SNDK and ARM ran so hard the +3% ceiling was clearly leaving money on the table \u2014 both were strong momentum bursts (3.6x and 2.4x vol) that flipped to TP within the first half hour. When the move happens that fast, the trend has plenty of fuel left. Test: if +3% TAKE_PROFIT is reached within 30 minutes of entry on a signal with \u22652.0x volume, do NOT exit \u2014 instead convert to a 1.5% trailing stop from peak with a hard floor at +2% (lock breakeven-plus-1%), letting the runner extend through the morning."
+        ),
+        (
+            "Negative-gap MAYBEs DKNG (-$6.46) and TSLA (+$3.11) bled to TIME_CLOSE",
+            "DKNG entered 09:47 at $25.18 on a gap of -0.3%, MAYBE 1.5x vol, and drifted all the way to 14:00 TIME_CLOSE at $24.88 for -$6.46. TSLA entered 10:00 at $440.32 on a gap of -0.8%, MAYBE 1.5x vol, also drifted to TIME_CLOSE at $442.23 for a token +$3.11. Both were marginal-volume MAYBE signals on negative-gap tickers \u2014 exactly the profile that produces all-day chop with no commitment, eating opportunity cost on capital. Neither came close to triggering NO_PROGRESS or EARLY_WEAK because they hovered just above entry. Test: block MAYBE-rated ORB entries when the ticker's open-to-signal gap is negative (<0%) AND volume is <2.0x \u2014 require either positive gap OR conviction-grade volume for MAYBE in NEUT markets."
+        ),
+        (
+            "KOPN low-priced MAYBE stopped in 9 minutes (-$6.58 at 1.4x vol floor)",
+            "KOPN entered 09:45 at $5.96 on a MAYBE with just 1.4x volume \u2014 barely above the 1.0x floor \u2014 and hit STOP_LOSS at 09:54 ($5.80) within 9 minutes for -$6.58 (-2.68%). Sub-$10 tickers like KOPN have wider relative spreads and noisier 1-minute candles, so a 1.5% stop translates to only ~9 cents of breathing room. Pairing a barely-qualifying volume MAYBE with a low-priced ticker is the worst-of-both-worlds: low conviction signal on a noise-prone instrument. IONQ ($67.41, 1.5x vol) also stopped within 15 min, but KOPN's price-noise risk compounds the problem. Test: for tickers priced under $10, raise the MAYBE volume threshold to \u22652.0x (vs the current 1.0x floor for MAYBE), so low-priced tickers only enter on real conviction; TAKE rating threshold unchanged."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -727,6 +741,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-22": [None, None, None],
     "2026-05-25": [None, None, None],
     "2026-05-27": [None, None, None],
+    "2026-05-28": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -897,6 +912,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "EX2 extras contributed -$4.22 on a NEUT day where EX1 winners did the work",
             "Today EX2 beat EX1 by $+6.87, but that delta came entirely from base ORB/GAP_GO trades sized or scored differently \u2014 not from the extra signals layer. The extras (re-entries + PM_ORB + afternoon breakouts) netted -$4.22 combined (PM_ORB only, since re-entries and afternoon breakouts were empty). On a NEUT day where IONQ #1 already delivered the TAKE_PROFIT win at 12:02 and DKNG #1 held +1.83% to time close, the PM_ORB layer effectively added noise without alpha \u2014 IONQ #2 chased the prior winner and ASTS #2 was a coin-flip that broke even. This continues the pattern of PM_ORB MAYBE entries being marginally negative on NEUT days. Test: require PM_ORB signals fire on tickers that did NOT already have a winning exit (TAKE_PROFIT) earlier in the session \u2014 if morning ORB on that ticker hit TP, suppress PM_ORB on the same ticker for the rest of the day. Backtest to quantify the avoided drag."
+        )
+    ],
+    "2026-05-28": [
+        (
+            "Re-entry layer net negative on chop reversals \u2014 KOPN/ARM/IONQ all faded after second entry",
+            "All three re-entries fired on tickers that had just stopped out, and only KOPN #2 broke even ($+0.67 via trailing stop). ARM #2 entered at $344.75 at 11:27 \u2014 28 minutes after ARM #1 stopped at $316.06 \u2014 and trailed out at $342.04 for -$5.36; the +8.7% bounce from the morning low was already exhausted by entry. IONQ #2 entered at $70.66 at 11:38 after #1 stopped at $66.31, then stopped again at $69.58 for -$7.93 \u2014 a textbook double-stop on a ticker that gapped DOWN (-0.2%) and never reclaimed the morning high cleanly. Net re-entry contribution: -$12.62 on 3 trades, with the only winner barely positive. Pattern: re-entries on tickers whose morning trade lost to STOP_LOSS (not trailing stop) are entering AFTER the snapback, not riding a fresh trend. Test: block re-entries when the original exit was STOP_LOSS (vs TRAILING_STOP) AND the re-entry price is >2% above the original stop level \u2014 this would have killed ARM #2 (entry +9.1% above ARM #1 stop) and IONQ #2 (entry +4.9% above IONQ #1 stop), saving $13.29."
+        ),
+        (
+            "PM_ORB MAYBE rides to TIME_CLOSE saved the layer \u2014 TAKE got chopped on CRDO",
+            "PM_ORB layer netted +$5.41, but the breakdown is counterintuitive: the TAKE-rated CRDO #1 (3.0x vol, gap 0%) entered at $229.00 at 12:46 and exited at 13:32 via EARLY_WEAK for -$25.90, while both MAYBE-rated trades (PLTR #2 at 1.7x vol, COIN #2 at 1.7x vol) survived to TIME_CLOSE for +$29.40 and +$1.91. The TAKE designation pulled CRDO into a larger allocation that then took the worst PM hit of the day. EARLY_WEAK triggered at T+45 because CRDO drifted from $229.00 \u2192 $226.29 with no momentum follow-through despite the 3.0x volume spike \u2014 a classic PM volume blip without trend continuation. Meanwhile the lower-conviction MAYBE entries grinded sideways and benefited from the 14:00 time close on a NEUT day. Test: require PM_ORB TAKE signals to also show SPY relative strength of \u2265+0.10% over the 5 bars preceding the breakout (not just at the moment of trigger). CRDO at 12:46 was breaking out into a flat SPY tape; this filter would have demoted it to MAYBE (smaller allocation) or SKIP, capping the loss."
+        ),
+        (
+            "Zero afternoon breakouts on a day with three PM_ORB triggers \u2014 volume threshold may be too tight",
+            "PM_ORB fired 3 times between 12:46 and 13:14, all on volume between 1.7x and 3.0x morning average. The 13:00+ afternoon breakout signal requires close > morning high AND volume \u2265 50x morning avg \u2014 that 50x bar is enormous and produced zero entries today despite clear PM strength on PLTR, COIN, and CRDO. PLTR #2 in particular ran from $139.43 \u2192 $142.03 (+1.86%) cleanly post-13:00, which is exactly the kind of move the afternoon breakout layer was designed to catch with a 15:30 time close instead of 14:00. The 50x volume gate is so strict it's essentially never firing, making the afternoon breakout layer dead weight in EX2's logic. Test: lower the afternoon breakout volume requirement from 50x to 10x morning average AND require it to fire on a ticker that did NOT already trigger PM_ORB (to avoid double-entry); backtest over the last 30 days to see if this surfaces 2-4 trades/week with positive expectancy or just adds noise."
         )
     ],
 }
