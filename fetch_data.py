@@ -705,6 +705,20 @@ PER_DAY_GROWTH = {
             "KOPN entered 09:45 at $5.96 on a MAYBE with just 1.4x volume \u2014 barely above the 1.0x floor \u2014 and hit STOP_LOSS at 09:54 ($5.80) within 9 minutes for -$6.58 (-2.68%). Sub-$10 tickers like KOPN have wider relative spreads and noisier 1-minute candles, so a 1.5% stop translates to only ~9 cents of breathing room. Pairing a barely-qualifying volume MAYBE with a low-priced ticker is the worst-of-both-worlds: low conviction signal on a noise-prone instrument. IONQ ($67.41, 1.5x vol) also stopped within 15 min, but KOPN's price-noise risk compounds the problem. Test: for tickers priced under $10, raise the MAYBE volume threshold to \u22652.0x (vs the current 1.0x floor for MAYBE), so low-priced tickers only enter on real conviction; TAKE rating threshold unchanged."
         )
     ],
+    "2026-05-29": [
+        (
+            "DELL GAP_GO +32% gap collapsed for -$74.11 in one bar \u2014 cap extreme gaps",
+            "DELL gapped +32.1% at the open (TAKE 20.3x volume), triggered GAP_GO at 09:33 $426.82, and the very next bar CONFIRM_BAR_EXIT fired at $416.85 for a -2.34% / -$74.11 loss \u2014 the single biggest loser of the day and nearly enough to erase SMCI's +$85.17 winner. A +32% gap is not a normal high-momentum continuation setup; that magnitude typically reflects earnings/M&A news with two-sided volatility where the open is the high of the day. Volume alone (20.3x) was not enough to filter this \u2014 the issue was gap size, not conviction. Test: block GAP_GO entries when the open gap exceeds +15% (or require a 5-min consolidation hold above the opening bar high before entering when gap > +15%)."
+        ),
+        (
+            "TAKE_PROFIT at +3% capped three winners (SMCI/PLTR/UPST) \u2014 test trailing after target",
+            "Three of today's four winners hit the hard +3% take-profit and exited: SMCI at 09:37 (+$85.17, only 6 min after entry on a 6.9x vol GAP_GO with momentum still building), PLTR at 10:34 (+$45.80), and UPST at 13:17 (+$30.05). The one winner left to run, COIN, was held to TIME_CLOSE and finished +2.96% / +$67.98 \u2014 comparable in size despite a 'small' percent gain, simply because it wasn't cut at +3%. SMCI in particular looks like a chronic underrun: a 6.9x-vol GAP_GO that exits 6 minutes in is leaving the entire trend day on the table. Test: when TAKE_PROFIT triggers at +3%, instead of selling, convert to a tightened trailing stop (e.g. 1.0% from peak) and let the position ride until trail or TIME_CLOSE."
+        ),
+        (
+            "Early-morning MAYBE cluster 09:46\u201309:56 went 0-for-5 for -$45.04",
+            "Every MAYBE ORB entered in the 09:46\u201309:56 window lost: SNDK 09:46 -$7.43 (TRAILING_STOP), ARM 09:46 -$18.70 (STOP_LOSS), NVDA 09:48 -$1.38 (NO_PROGRESS), CRDO 09:50 -$2.28 (TRAILING_STOP), IONQ 09:56 -$15.25 (STOP_LOSS). All had modest volume conviction (1.6x\u20132.5x) and small/mixed gaps (-1.7% to +1.8%). The two winning MAYBEs today (PLTR +$45.80 at 09:53 and UPST +$30.05 at 11:09) had similar volume but came either later or with cleaner setup. The pattern: early-window MAYBEs that fire in the first 30 minutes are being eaten by opening-range noise before trend confirms. Test: require MAYBE ORB entries before 10:00 to clear a higher volume bar (\u22652.5x avg) AND show a positive gap \u2265 +1.0%, otherwise downgrade to SKIP."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -742,6 +756,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-25": [None, None, None],
     "2026-05-27": [None, None, None],
     "2026-05-28": [None, None, None],
+    "2026-05-29": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -926,6 +941,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "Zero afternoon breakouts on a day with three PM_ORB triggers \u2014 volume threshold may be too tight",
             "PM_ORB fired 3 times between 12:46 and 13:14, all on volume between 1.7x and 3.0x morning average. The 13:00+ afternoon breakout signal requires close > morning high AND volume \u2265 50x morning avg \u2014 that 50x bar is enormous and produced zero entries today despite clear PM strength on PLTR, COIN, and CRDO. PLTR #2 in particular ran from $139.43 \u2192 $142.03 (+1.86%) cleanly post-13:00, which is exactly the kind of move the afternoon breakout layer was designed to catch with a 15:30 time close instead of 14:00. The 50x volume gate is so strict it's essentially never firing, making the afternoon breakout layer dead weight in EX2's logic. Test: lower the afternoon breakout volume requirement from 50x to 10x morning average AND require it to fire on a ticker that did NOT already trigger PM_ORB (to avoid double-entry); backtest over the last 30 days to see if this surfaces 2-4 trades/week with positive expectancy or just adds noise."
+        )
+    ],
+    "2026-05-29": [
+        (
+            "ARM re-entry repeated a stopped-out morning setup for a NO_PROGRESS loss",
+            "ARM stopped out at 10:17 for -$13.45 (-1.57%), then re-fired a TAKE re-entry at 12:15 $351.04 \u2014 only $1.28 (0.4%) below the morning entry $352.32. The re-entry then drifted sideways for 92 minutes and exited NO_PROGRESS at 13:47 $350.45 for -$1.08. The morning trade had already proven the level was untradeable (stopped 1.57% below entry), and the re-entry fired at essentially the same price without any structural change. Re-entries should require meaningful separation from the failed morning level, not just a fresh ORB breakout at the same price zone. Test: block REENTRY if the new entry price is within 0.5% of the prior stopped-out entry price on the same ticker; require a >0.5% gap to confirm the setup has actually reset."
+        ),
+        (
+            "PM_ORB silence on a NEUT day with two morning TAKEs running was correct restraint",
+            "Zero PM_ORB and zero afternoon-breakout signals fired today, while SHOP (TAKE entry 10:37) and COIN (TAKE entry 11:06) were already loaded and ran to TIME_CLOSE for +$42.17 and +$72.27. Both late-morning TAKEs needed the full afternoon to mature (+1.07% and +2.96% respectively at 14:00 close), meaning any PM_ORB add at 12:44+ would have competed for capital against trades that were already working. The absence of PM_ORB noise let SHOP/COIN breathe \u2014 a reminder that PM_ORB's value depends on morning capacity. Test: when \u22652 morning TAKE positions are still open and in profit at 12:30, suppress PM_ORB TAKE\u2192MAYBE downgrade (or skip entirely) to avoid reallocation pressure on winning trades; measure over 30 days whether suppressed PM_ORBs would have been net positive or negative."
+        ),
+        (
+            "Re-entry layer net -$1.08 on a +$132 day \u2014 capital opportunity cost worth measuring",
+            "Only one extra-layer signal fired (ARM REENTRY) and it lost $1.08, but the deeper cost is that the re-entry tied up ~$650 of capital from 12:15 to 13:47 \u2014 92 minutes during the exact window when SHOP and COIN were grinding toward their +1.07% and +2.96% finishes. With NVDA already flagged REALLOC at 11:06 (signaling tight budget earlier), every dollar in a re-entry is a dollar not available to top up or hold the winners. The re-entry layer is now -$1.08 today on top of the prior 'slightly negative over 12 days' trend flagged in CLAUDE.md. Test: add an opportunity-cost gate \u2014 block REENTRY if there are already \u22652 morning TAKE positions open and the wallet's free cash is <30% of starting capital; this preserves dry powder for the trades already proving themselves."
         )
     ],
 }
