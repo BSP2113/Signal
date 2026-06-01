@@ -719,6 +719,20 @@ PER_DAY_GROWTH = {
             "Every MAYBE ORB entered in the 09:46\u201309:56 window lost: SNDK 09:46 -$7.43 (TRAILING_STOP), ARM 09:46 -$18.70 (STOP_LOSS), NVDA 09:48 -$1.38 (NO_PROGRESS), CRDO 09:50 -$2.28 (TRAILING_STOP), IONQ 09:56 -$15.25 (STOP_LOSS). All had modest volume conviction (1.6x\u20132.5x) and small/mixed gaps (-1.7% to +1.8%). The two winning MAYBEs today (PLTR +$45.80 at 09:53 and UPST +$30.05 at 11:09) had similar volume but came either later or with cleaner setup. The pattern: early-window MAYBEs that fire in the first 30 minutes are being eaten by opening-range noise before trend confirms. Test: require MAYBE ORB entries before 10:00 to clear a higher volume bar (\u22652.5x avg) AND show a positive gap \u2265 +1.0%, otherwise downgrade to SKIP."
         )
     ],
+    "2026-06-01": [
+        (
+            "SNDK & PLTR stops both overshot the -1.5% rule (-2.01% / -2.16%, $-82 combined)",
+            "The stop loss is specified at -1.5% from entry, but both stopped-out trades realized larger losses: SNDK GAP_GO exited 09:49 at $1747.26 vs $1783.08 entry (-2.01%, $-49.17) and PLTR ORB exited 10:04 at $158.26 vs $161.76 entry (-2.16%, $-32.85). On both, price gapped through the -1.5% level on a single 1-minute bar before the stop could fire on close, so the realized loss exceeded the intended risk by ~0.5% each \u2014 together that overshoot cost roughly $20 beyond the modeled stop. This is a slippage pattern on fast morning reversals, not a logic error in the stop level itself. Test: change the stop-loss check from 'close of bar < -1.5%' to an intrabar trigger that exits at the -1.5% price level (or the bar's low if it opened below it) so realized losses are capped at the rule rather than at the next bar's close."
+        ),
+        (
+            "ARM +9.6% gap gave back nearly all upside \u2014 trailing stop capped winner at +0.26% ($+6.61)",
+            "ARM gapped +9.6% with 5.8x volume and a clean GAP_GO TAKE at 09:32 ($399.16), the strongest setup of the day, yet it exited via TRAILING_STOP just 10 minutes later at 09:42 ($400.21) for only +0.26%. The 2.0%-from-peak trailing stop (armed after +1%) is calibrated for normal ORB moves, but on a >9% gap the first-15-minute noise band is far wider than 2%, so a routine pullback tripped the trail before the trend could develop and turned the day's best candidate into a $6.61 scratch. The other two trades lost, making this capped winner the difference between a small loss and a much worse day. Test: scale the trailing-stop width by gap size for GAP_GO entries \u2014 e.g. use a 3.5% trail when the open gap is \u22655% (and don't arm it until +2%), so high-momentum gappers get room to run."
+        ),
+        (
+            "PLTR low-conviction MAYBE (1.5x vol, +0.7% gap, 09:45 entry) was the worst ORB, -$32.85",
+            "PLTR was the only non-GAP_GO entry and the weakest signal of the three: a MAYBE rated on just 1.5x volume with a thin +0.7% gap, entered late at 09:45 \u2014 15 minutes into the session \u2014 and it stopped out at 10:04 for -2.16% ($-32.85). The two GAP_GO TAKEs (SNDK, ARM) at least had 5.7x\u20135.8x volume conviction; PLTR's marginal 1.5x volume cleared the MAYBE floor but offered no edge, and the late 09:45 ORB fire meant it broke out into a fading tape with little runway before reversing. On a NEUTRAL day this is exactly the borderline entry that adds risk without expectancy. Test: on NEUTRAL-classified days, require MAYBE ORB entries to clear a 2.0x volume floor (instead of 1.0x) before qualifying, so thin 1.5x breakouts like PLTR are downgraded to SKIP."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -757,6 +771,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-27": [None, None, None],
     "2026-05-28": [None, None, None],
     "2026-05-29": [None, None, None],
+    "2026-06-01": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -955,6 +970,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "Re-entry layer net -$1.08 on a +$132 day \u2014 capital opportunity cost worth measuring",
             "Only one extra-layer signal fired (ARM REENTRY) and it lost $1.08, but the deeper cost is that the re-entry tied up ~$650 of capital from 12:15 to 13:47 \u2014 92 minutes during the exact window when SHOP and COIN were grinding toward their +1.07% and +2.96% finishes. With NVDA already flagged REALLOC at 11:06 (signaling tight budget earlier), every dollar in a re-entry is a dollar not available to top up or hold the winners. The re-entry layer is now -$1.08 today on top of the prior 'slightly negative over 12 days' trend flagged in CLAUDE.md. Test: add an opportunity-cost gate \u2014 block REENTRY if there are already \u22652 morning TAKE positions open and the wallet's free cash is <30% of starting capital; this preserves dry powder for the trades already proving themselves."
+        )
+    ],
+    "2026-06-01": [
+        (
+            "GAP_GO re-entry ban left the re-entry layer dead on arrival",
+            "Both of today's losses were GAP_GO stop-outs \u2014 SNDK (gap +3.2%, stopped 09:44 at -1.86%, -$48.40) and ARM (gap +9.6%, stopped 09:48 at -1.61%, -$43.16). GAP_GO trades are explicitly ineligible for re-entry, so the entire re-entry layer was structurally blocked from contributing today \u2014 there was literally nothing for it to act on. Capital freed up around 09:48, well before the 13:30 re-entry cutoff, but the rule barred any redeployment into either name. Net re-entry contribution: $0.00. The question is whether a blanket GAP_GO exclusion is too rigid: a +9.6% gapper that fails on the open can still set up a clean second ORB later. But re-entering a name that just gapped hard and reversed is also how you double down on a fading setup, so this needs evidence before loosening. Test: backtest a narrow GAP_GO re-entry \u2014 eligible only if a new ORB fires before 11:00 reclaiming the opening-range high, with a tighter 1.0% stop and 50% (not 75%) allocation \u2014 and ship only if it shows positive expectancy across gap-fade days."
+        ),
+        (
+            "PM_ORB reference inflated by failed gap highs never triggers on gap-fade days",
+            "No PM_ORB fired today. The PM_ORB reference level is the morning session high (highest close 9:30\u201311:30). On a day where the dominant morning action was two gap-ups that spiked at the open then stopped out (SNDK and ARM both hit their highs in the first minutes), the morning high is set by the gap spike itself \u2014 an elevated, unrepresentative level. Post-lunch price on a neutral fading day has no chance of clearing a gap-spike high, so PM_ORB stays silent precisely on the days it was meant to catch a genuine afternoon reversal. The signal is structurally biased to never fire after failed gappers. Test: when a ticker's morning high was set by a GAP_GO bar that later stopped out, use the post-gap consolidation high (highest close 10:00\u201311:30) as the PM_ORB reference instead of the absolute morning high; backtest false-positive rate vs the win rate gained."
+        ),
+        (
+            "Entire afternoon layer was inert, leaving EX2 no recovery path after morning -$91.56",
+            "Today the re-entry, PM_ORB, and afternoon-breakout layers all contributed exactly $0.00. Both base trades were done by 09:48, the morning booked -$91.56, and from that point EX2's extra machinery offered zero ways to recover \u2014 it could only match or trail EX1 (it trailed by $16.15 on sizing drift). The afternoon breakout requires volume \u2265 50x the morning average, a bar so high it essentially never clears, so the one layer designed for a post-morning second chance was effectively switched off on a day that needed it most. EX2's whole justification is added upside over EX1; on days like today it carries none. Test: lower the afternoon-breakout volume gate from 50x to a swept value (try 20x and 30x) AND require close > morning high by \u22650.3% to suppress noise, and measure whether the added afternoon entries beat EX1 specifically on red-morning days."
         )
     ],
 }
