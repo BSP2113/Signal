@@ -733,6 +733,20 @@ PER_DAY_GROWTH = {
             "PLTR was the only non-GAP_GO entry and the weakest signal of the three: a MAYBE rated on just 1.5x volume with a thin +0.7% gap, entered late at 09:45 \u2014 15 minutes into the session \u2014 and it stopped out at 10:04 for -2.16% ($-32.85). The two GAP_GO TAKEs (SNDK, ARM) at least had 5.7x\u20135.8x volume conviction; PLTR's marginal 1.5x volume cleared the MAYBE floor but offered no edge, and the late 09:45 ORB fire meant it broke out into a fading tape with little runway before reversing. On a NEUTRAL day this is exactly the borderline entry that adds risk without expectancy. Test: on NEUTRAL-classified days, require MAYBE ORB entries to clear a 2.0x volume floor (instead of 1.0x) before qualifying, so thin 1.5x breakouts like PLTR are downgraded to SKIP."
         )
     ],
+    "2026-06-02": [
+        (
+            "SMCI GAP_GO +7.3% gap faded instantly for -$63.96 stop-out",
+            "SMCI gapped +7.3% and fired a GAP_GO TAKE at 9.2x volume \u2014 the strongest-looking signal of the day \u2014 yet entry at 09:31 $51.06 hit STOP_LOSS at 09:39 $49.92 in just 8 minutes for -2.23% (-$63.96), which alone accounts for ~75% of the day's -$84.73 loss. A 9.2x volume spike on a +7.3% gap is climactic exhaustion, not continuation: the breakout buyers were the last in, and price reversed immediately. The volume conviction score rewarded exactly the condition that doomed the trade. Test: for GAP_GO entries where the opening gap is \u22656%, require a 2-bar confirmation (two consecutive 1-min closes above the opening bar high) before entry instead of entering on the first close, to filter blow-off-top fades."
+        ),
+        (
+            "ASTS trailing stop gave back a +1% peak to exit at +0.15% / +$2.31",
+            "ASTS entered GAP_GO at 09:31 $111.83 and exited TRAILING_STOP at 09:47 $112.00 for only +0.15% (+$2.31). Because the trailing stop only arms after a +1% peak, ASTS had to reach at least $112.95 before fading 2% back to $112.00 \u2014 meaning a real ~+1% gain was almost entirely surrendered within 16 minutes by the fixed 2.0% trail. On a fresh gap-up that peaks early, a 2.0% give-back is too loose and converts a modest winner into a scratch. Test: for the first 30 minutes after a GAP_GO entry, tighten the trailing stop from 2.0% to 1.0% from peak so early pops are locked in rather than round-tripped."
+        ),
+        (
+            "SNDK ORB long on a -2.1% gap-down stopped for -$18.20",
+            "SNDK fired an ORB MAYBE at 1.9x volume and was bought long at 09:46 $1752.58 despite the stock gapping DOWN -2.1% on the day, then hit STOP_LOSS at 11:06 $1716.62 for -2.05% (-$18.20). Buying an upside ORB breakout while the ticker is in a clear gap-down posture is a counter-gap long with the daily trend against it \u2014 the SPY relative-strength gate cleared it, but the stock's own gap direction was negative, and it had no runway. Test: block or downgrade ORB BUY signals to SKIP when the ticker itself is gapping down \u2264 -1.5% at the open, since the opening-range breakout is fighting a bearish gap regardless of relative strength vs SPY."
+        )
+    ],
 }
 
 # Links each per-day note to its improvement pool index (one entry per note in the list).
@@ -772,6 +786,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-28": [None, None, None],
     "2026-05-29": [None, None, None],
     "2026-06-01": [None, None, None],
+    "2026-06-02": [None, None, None],
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
@@ -984,6 +999,20 @@ PER_DAY_GROWTH_EX2 = {
         (
             "Entire afternoon layer was inert, leaving EX2 no recovery path after morning -$91.56",
             "Today the re-entry, PM_ORB, and afternoon-breakout layers all contributed exactly $0.00. Both base trades were done by 09:48, the morning booked -$91.56, and from that point EX2's extra machinery offered zero ways to recover \u2014 it could only match or trail EX1 (it trailed by $16.15 on sizing drift). The afternoon breakout requires volume \u2265 50x the morning average, a bar so high it essentially never clears, so the one layer designed for a post-morning second chance was effectively switched off on a day that needed it most. EX2's whole justification is added upside over EX1; on days like today it carries none. Test: lower the afternoon-breakout volume gate from 50x to a swept value (try 20x and 30x) AND require close > morning high by \u22650.3% to suppress noise, and measure whether the added afternoon entries beat EX1 specifically on red-morning days."
+        )
+    ],
+    "2026-06-02": [
+        (
+            "KOPN re-entry doubled down at the exact stop-out price",
+            "KOPN #1 stopped out at 10:25 ($5.84), and the re-entry fired just 14 minutes later at 10:39 at $5.96 \u2014 the identical price to the original entry \u2014 then stopped out AGAIN at 12:30 ($5.87, -1.51%, -$7.10). The 5-bar wait rule was technically satisfied, but the stock had reclaimed nothing: it bounced straight back to the original entry level on a fresh ORB and immediately rolled over. This is the textbook 're-enter into the same failing setup' trap \u2014 KOPN was a low-conviction MAYBE on the first entry (2.1x vol) and showed zero structural improvement on the second. The re-entry added pure cost. Test: block a re-entry unless the new entry price is at least 0.5% ABOVE the original entry (proving the breakout actually reclaimed lost ground), not just above the morning ORB high."
+        ),
+        (
+            "13:11 SNDK re-entry fired too late to reach take-profit before time close",
+            "SNDK #2 re-entered at 13:11 ($1739.27) and never went anywhere \u2014 it drifted to the 14:00 TIME_CLOSE at $1736.49 (-0.16%, -$1.13). With only 49 minutes left before the hard exit, the trade had no realistic runway to hit the +3% TP; it was effectively a coin-flip on a half-hour of noise. Re-entries that fire after ~13:00 are structurally disadvantaged because they inherit the morning's 14:00 time close. Of today's two re-entries, the late one was dead weight and the early one (KOPN 10:39) was a loser \u2014 the layer netted -$8.23. Test: move the re-entry cutoff earlier from 13:30 to 12:30, so any re-entry has at least 90 minutes of runway before the 14:00 time close."
+        ),
+        (
+            "PM_ORB on ASTS was the only profitable extra signal \u2014 and time close clipped it while still rising",
+            "ASTS #2 PM_ORB was the lone winner among all extra signals (+$5.45, +1.01%), entering 13:13 at $116.35 and getting cut at the 14:00 TIME_CLOSE at $117.53 \u2014 still climbing into the exit. Notably this was a MAYBE at exactly 2.0x vol (the TAKE floor), on a ticker that had already booked a +3% TAKE_PROFIT winner that morning, suggesting persistent intraday strength is a useful PM_ORB filter. The 14:00 time close inherited from the morning ORB choked off a position with upward momentum, whereas afternoon breakouts get a 15:30 close. Test: extend the PM_ORB time close from 14:00 to 15:30 (matching the afternoon-breakout window) so PM_ORB entries get the full afternoon to develop instead of a sub-1-hour leash."
         )
     ],
 }
