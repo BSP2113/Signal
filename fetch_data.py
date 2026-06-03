@@ -1015,6 +1015,20 @@ PER_DAY_GROWTH_EX2 = {
             "ASTS #2 PM_ORB was the lone winner among all extra signals (+$5.45, +1.01%), entering 13:13 at $116.35 and getting cut at the 14:00 TIME_CLOSE at $117.53 \u2014 still climbing into the exit. Notably this was a MAYBE at exactly 2.0x vol (the TAKE floor), on a ticker that had already booked a +3% TAKE_PROFIT winner that morning, suggesting persistent intraday strength is a useful PM_ORB filter. The 14:00 time close inherited from the morning ORB choked off a position with upward momentum, whereas afternoon breakouts get a 15:30 close. Test: extend the PM_ORB time close from 14:00 to 15:30 (matching the afternoon-breakout window) so PM_ORB entries get the full afternoon to develop instead of a sub-1-hour leash."
         )
     ],
+    "2026-06-03": [
+        (
+            "PM_ORB doubled down on META \u2014 concentration paid but correlation risk",
+            "META #2 (PM_ORB, TAKE 2.5x vol) fired at 13:00 $620.04 while META #1 (ORB) was already open from 10:01 and still running to its 14:00 TIME_CLOSE. So EX2 held two simultaneous META positions into the same hour, both exiting at 14:00 ($622.47). The second leg added +$9.32, the bulk of today's $12.73 PM_ORB contribution \u2014 but it was effectively a single concentrated bet on META in the final hour rather than a diversified add. Had META reversed after 13:00 both legs would have bled together. The PM_ORB layer here was not finding a new opportunity, it was leveraging up an existing winner. Test: when a PM_ORB fires on a ticker that already has an open morning ORB/GAP_GO position, cap the PM_ORB allocation at 50% of normal (instead of full size) to limit same-ticker correlation exposure."
+        ),
+        (
+            "PM_ORB entries too late to reach take-profit \u2014 both died on TIME_CLOSE",
+            "Both PM_ORBs exited via TIME_CLOSE at 14:00, neither reached its +3% target. META #2 entered 13:00 and captured only +0.39% in the 60 minutes available; SNDK #2 entered 13:27 and captured +1.36% in 33 minutes. Compare to the morning ORB versions: SNDK #1 (entry 10:21) had time to run to a full +3.02% TAKE_PROFIT, and KOPN #1 hit +3.65% in 6 minutes. The PM_ORB window (12:44\u201313:30) combined with the 14:00 time close gives these trades 30\u201375 minutes of runway \u2014 structurally too short to let a +3% target work, so they're capped at whatever drifts in before the bell. The signals were directionally correct (both green) but the exit clock truncated them. Test: extend PM_ORB-specific TIME_CLOSE from 14:00 to 15:00 and re-run the last 45 days to measure whether the extra hour converts these TIME_CLOSE drifts into TAKE_PROFIT hits without giving back gains."
+        ),
+        (
+            "Extra layer added $12.73 gross but EX2 only beat EX1 by $4.77 \u2014 capital drag",
+            "PM_ORB contributed $12.73 net today, yet EX2 finished only $4.77 ahead of EX1 ($30.00 vs $25.23). That ~$8 gap means deploying capital into META #2 and SNDK #2 in the afternoon left less for, or reshaped, the base book versus EX1's leaner allocation. Notably SNDK #2 (PM_ORB, MAYBE 4.1x vol) entered 13:27 at $1804.83 just 9 minutes before SNDK #1 hit TAKE_PROFIT at 13:36 \u2014 EX2 briefly held two SNDK positions stacked at nearly the same price, tying up capital in a name it was about to bank anyway. The MAYBE-rated, same-ticker, near-simultaneous re-stack is the lowest-conviction use of the PM_ORB budget. Test: block a PM_ORB MAYBE entry when the same ticker already has an open position within ~1% of the PM_ORB trigger price (avoid stacking duplicate exposure at the same level), and reserve PM_ORB capital for tickers with no current open position."
+        )
+    ],
 }
 
 # Per-day Claude's Notes for Exercise 3 (hybrid routing analysis)
