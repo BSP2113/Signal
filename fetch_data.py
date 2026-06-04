@@ -733,6 +733,20 @@ PER_DAY_GROWTH = {
             "PLTR was the only non-GAP_GO entry and the weakest signal of the three: a MAYBE rated on just 1.5x volume with a thin +0.7% gap, entered late at 09:45 \u2014 15 minutes into the session \u2014 and it stopped out at 10:04 for -2.16% ($-32.85). The two GAP_GO TAKEs (SNDK, ARM) at least had 5.7x\u20135.8x volume conviction; PLTR's marginal 1.5x volume cleared the MAYBE floor but offered no edge, and the late 09:45 ORB fire meant it broke out into a fading tape with little runway before reversing. On a NEUTRAL day this is exactly the borderline entry that adds risk without expectancy. Test: on NEUTRAL-classified days, require MAYBE ORB entries to clear a 2.0x volume floor (instead of 1.0x) before qualifying, so thin 1.5x breakouts like PLTR are downgraded to SKIP."
         )
     ],
+    "2026-06-04": [
+        (
+            "PLTR TAKE ORB fired at exactly 10:00 (30 min in) → immediate STOP_LOSS -$41.44, the day's largest single loss",
+            "PLTR received a TAKE rating (vol_ratio 2.9x, gap +1.46%) and $1,979 was allocated at entry 10:00. It reversed almost immediately and stopped out at 10:17 for -$41.44 (-2.09%), accounting for the entire day's loss margin in EX1. The ORB fired at the 30-minute mark — the farthest edge of the consolidation window — meaning institutional order flow had already dried up and the breakout attracted shorts rather than follow-through buyers. Compare NVDA (ORB at 11:09, MAYBE-rated, +$14.31): smaller allocation on a later entry survived and won. Late-window ORBs that earn TAKE via volume carry disproportionate false-breakout risk because the setup looks strongest right before momentum exhausts. Test: apply a hard time-based cap — any ORB firing at or after 10:00 is capped at MAYBE allocation regardless of vol_ratio, bounding PLTR-style late-breakout exposure."
+        ),
+        (
+            "KOPN -3.8% gap ORB rated TAKE in EX2 ($1,200 allocated) stopped out for -$21.71 vs -$9.23 at MAYBE in EX1",
+            "KOPN gapped down -3.8% and fired an ORB at 09:50. In EX2 the higher wallet sized it as a TAKE ($1,200 allocated, vol 1.5x) and it hit STOP_LOSS at 10:05 for -$21.71. In EX1 the same setup was rated MAYBE ($374 allocated) and cost only -$9.23 — identical trade, 2.4x the damage. The EX2 re-entry at 10:19 recovered $18.41 but masked the bloated initial loss rather than fixing the root problem. A -3.8% gap-down is strong daily distribution evidence; the ORB is a counter-trend long fighting the dominant direction from open. Test: hard cap ORB ratings to MAYBE when gap_pct < -2% regardless of volume conviction, so maximum initial risk on large gap-downs is always bounded to MAYBE position sizing."
+        ),
+        (
+            "CRDO PM_ORB with exceptional 5.1x volume reversed quickly for -$3.19; moderate-vol PM_ORBs (1.5–2.1x) all won",
+            "CRDO fired a PM_ORB at 12:46 with the session's highest vol_ratio at 5.1x, yet stopped out via TRAILING_STOP at 13:18 for -$3.19 (-0.91%). The three profitable PM_ORBs — ARM (+$4.69, 2.1x), ASTS (+$3.66, 2.0x), DELL (+$2.30, 1.5x) — all had moderate volume and held to TIME_CLOSE. The extreme CRDO volume spike appears to have been a stop-run or order-driven flush that pulled in buyers who then found no follow-through; exactly the condition where high volume signals exhaustion rather than conviction. Test: for PM_ORB signals with vol_ratio > 4.0x, downgrade the rating to MAYBE and add a 1-bar confirmation requirement (next bar must also close above the morning high) before entry, treating extreme afternoon volume as a caution flag rather than an enhancing signal."
+        ),
+    ],
     "2026-06-02": [
         (
             "SMCI GAP_GO +7.3% gap faded instantly for -$63.96 stop-out",
@@ -787,6 +801,7 @@ PER_DAY_GROWTH_IDX = {
     "2026-05-29": [None, None, None],
     "2026-06-01": [None, None, None],
     "2026-06-02": [None, None, None],
+    "2026-06-04": [None, None, None],  # note 1 → late ORB TAKE cap at 10:00 | note 2 → neg-gap TAKE block at -2% | note 3 → PM_ORB extreme-vol caution flag
 }
 
 # Per-day Claude's Notes for Exercise 2 (re-entries, PM_ORB, afternoon signals)
